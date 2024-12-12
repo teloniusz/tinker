@@ -1,0 +1,13 @@
+services:
+  database:
+    ports:
+      - 5431:5432
+  front:
+    volumes:
+      - ${NGINX_CONF:-./nginx-dev.conf}:/etc/nginx/conf.d/default.conf
+
+  python:
+    volumes:
+      - ./app:/code/app
+      - ./data/debug:/code/data
+#      - .venv/lib/python3.11/site-packages:/code/.venv/lib/python3.11/site-packages

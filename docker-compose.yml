@@ -1,0 +1,46 @@
+services:
+  database:
+    env_file: docker-compose.env
+    image: postgres:${POSTGRES_VERSION:-16}
+    restart: always
+    user: ${USERID}
+    volumes:
+      - "./data/db:/var/lib/postgresql/data"
+    networks:
+      - intnet
+
+  front:
+    env_file: docker-compose.env
+    build:
+      context: .
+      dockerfile: Dockerfile.front
+    restart: always
+    ports:
+      - "${EXPOSE_PORT:-13857}:80"
+    depends_on:
+      - python
+    networks:
+      - intnet
+
+  python:
+    env_file: docker-compose.env
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        USERID: ${USERID:-500}
+    command: /code/entrypoint.sh '*'
+    depends_on:
+      - database
+    networks:
+      - intnet
+    volumes:
+      - ./data:/code/data
+
+networks:
+  intnet:
+    ipam:
+      config:
+        - subnet: 172.48.11.0/24
+          gateway: 172.48.11.1

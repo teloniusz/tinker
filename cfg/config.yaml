@@ -1,0 +1,17 @@
+APP_NAME: tINKer
+APP_ROOT: /api/
+SQLALCHEMY_DATABASE_URI: sqlite:///{app.ROOTDIR}/var/tinker.db
+OTHER_CONFIGS:
+  - /etc/tinker.cfg
+  - "{app.CONFDIR}/config_local.yaml"
+
+SECRET_KEY: LCOQDrEHZoDxm5KWOHygd6SFdhxZWu9S0VEOaMAOv5o            # please override in prod conf (secrets.token_urlsafe())
+SECURITY_PASSWORD_SALT: '16539505762278422682890755853521964844'  # please override in prod conf (secrets.SystemRandom().getrandbits(128))
+REMEMBER_COOKIE_SAMESITE: strict
+SESSION_COOKIE_SAMESITE: strict
+SESSION_TYPE: filesystem
+SESSION_FILE_DIR: "{app.ROOTDIR}/var/sessions"
+FLASK_SOCKETIO:
+  message_queue_url: redis://localhost
+RECAPTCHA_SECRET_KEY: "6LfaQZcqAAAAAHVGcoSAw4Dcy2ijsXNn7J4OwcnH"
+MAIL_SERVER: 172.48.11.1

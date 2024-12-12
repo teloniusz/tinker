@@ -1,0 +1,11 @@
+.venv
+*~
+__pycache__
+.swp,.swo
+.vscode
+var/
+data/
+temp/
+typings/
+web/node_modules
+web/build
