@@ -1,3 +1,4 @@
+import { MouseEventHandler, ReactElement } from "react";
 import { Form } from "react-bootstrap"
 
 
@@ -25,7 +26,10 @@ export const FormItem: React.FC<{
     value?: string
     defaultValue?: string
     errors?: Record<string, string[]>
-}> = ({ name, label, placeholder, type, readOnly, errors, ...rest }) => {
+    rows?: number
+    cols?: number
+    onClick?: MouseEventHandler
+}> = ({ name, label, placeholder, type, readOnly, errors, rows, cols, ...rest }) => {
     const id = `input${capitalize(name)}`;
     const err = errors || {};
     return (
@@ -35,6 +39,7 @@ export const FormItem: React.FC<{
                 placeholder: placeholder || `Enter ${label || capitalize(name)}`,
                 type: type || detectType(name.toLowerCase()),
                 id, name, readOnly, ...rest,
+                ...(rows !== undefined || cols !== undefined) && { rows, cols, as: 'textarea' },
                 isInvalid: !!err[name]
             })}
             />
@@ -46,3 +51,24 @@ export const FormItem: React.FC<{
         </Form.Group>
     )
 };
+
+export const FormSelect: React.FC<{
+    name: string
+    label?: string
+    required?: boolean
+    readOnly?: boolean
+    errors?: Record<string, string[]>
+    onClick?: MouseEventHandler
+    children: ReactElement[]
+}> = ({ name, label, errors, children, ...rest }) => {
+    const id = `input${capitalize(name)}`;
+    const err = errors || {};
+    return (
+        <Form.Group className="mb-3">
+            <Form.Label htmlFor={id}>{label || capitalize(name)}</Form.Label>
+            <Form.Select {...{ name, ...rest, isInvalid: !!err[name] }}>
+                {children}
+            </Form.Select>
+        </Form.Group>
+    )
+}
