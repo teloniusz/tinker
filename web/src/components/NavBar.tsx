@@ -139,6 +139,7 @@ export const NavbarSection: React.FC = () => {
               <Nav.Link as={NavLink} to='/'>
                 Home
               </Nav.Link>
+              {state.userInfo.id ? <Nav.Link as={NavLink} to='/datafiles'>Data Files</Nav.Link> : <></>}
             </Nav>
             <UserDot />
           </Navbar.Collapse>
