@@ -1,10 +1,10 @@
 import importlib
 import logging
 import os
+import secrets
 import sys
-from typing import Any, Callable, Iterable, TypeVar, cast
+from typing import Any, Callable, Iterable, TypeVar, TYPE_CHECKING, cast
 from os import path as op
-from wsgiref.types import StartResponse
 
 import yaml
 from flask import Flask, Blueprint
@@ -12,6 +12,8 @@ from flask import Flask, Blueprint
 from .confs import ConfVal, ConfDict
 from . import extensions
 
+if TYPE_CHECKING:  # pragma: no cover
+    from _typeshed.wsgi import StartResponse
 
 _T = TypeVar('_T')
 
@@ -44,7 +46,8 @@ class App(Flask):
             formatter = logging.Formatter('[%(asctime)-15s] [%(process)d] [%(levelname)s] in %(module)s: %(message)s')
             handler.setFormatter(formatter)
 
-    def setup_config(self, *filenames: str):
+    def setup_config(self, config: ConfDict, *filenames: str) -> ConfDict:
+        cfg_ready = ConfDict()
         class EmptyMiss(dict[str, Any]):
             def __missing__(self, key: Any):
                 return ''
@@ -61,32 +64,42 @@ class App(Flask):
         for fname in filenames:
             try:
                 with open(fname) as cfile:
-                    config: ConfVal = yaml.safe_load(cfile)
-                    if not config:
-                        config = {}
-                    if not isinstance(config, dict):
+                    cfg: ConfVal = yaml.safe_load(cfile)
+                    if not cfg:
+                        cfg = {}
+                    if not isinstance(cfg, dict):
                         raise TypeError
             except (IOError, FileNotFoundError) as exc:
                 self.logger.debug('Cannot read config file: %s', exc)
             except (TypeError, yaml.error.YAMLError):
                 self.logger.warning('Invalid file format: expected yaml dict')
             else:
-                cfg_ready = self.config.copy()
-                for key in list(config.keys()):
-                    cfg_ready[key] = config[key] = format_value(config[key], cfg=cfg_ready, app=self)
-                self.config.update(config)  # type: ignore
+                for key in list(cfg.keys()):
+                    cfg_ready[key] = cfg[key] = format_value(cfg[key], cfg={**config, **cfg_ready}, app=self)
+                cfg_ready.update(cfg)
                 self.logger.info('Loaded config: %s', fname)
+        return cfg_ready
 
     def __init__(self):
         super().__init__(__name__, static_folder=self.HTMLDIR, static_url_path='')  # type: ignore
-        self.config = ConfDict(self.config)
         self.setup_logger()
-        self.setup_config(op.join(self.CONFDIR, 'config.yaml'))
-        cfiles = self.config.get('OTHER_CONFIGS')
-        if cfiles and isinstance(cfiles, (list, str)):
-            if isinstance(cfiles, str):
-                cfiles = [cfiles]
-            self.setup_config(*(str(cfile) for cfile in cfiles))
+        self.config = ConfDict(self.config, **self.setup_config(ConfDict(self.config), op.join(self.CONFDIR, 'config.yaml')))
+        cfiles = self.config.get_as('liststr', 'OTHER_CONFIGS')
+        if cfiles:
+            add_config = self.setup_config(self.config, *cfiles)
+            for key, generator in (('SECRET_KEY', secrets.token_hex), ('SECURITY_PASSWORD_SALT', lambda: secrets.SystemRandom().getrandbits(128))):
+                if key not in add_config:
+                    last_fname = cfiles[-1]
+                    generated = str(generator())
+                    try:
+                        with open(last_fname, 'a') as last_cfile:
+                            last_cfile.write(f'{key}: {generated!r}\n')
+                    except OSError:
+                        self.logger.warning(f'Failed to write {key!r} to the {last_fname!r} file. Your setup may be insecure.')
+                    else:
+                        add_config[key] = generated
+            self.config.update(add_config)
+
         self.APPNAME = self.config['str', 'APP_NAME']
         self.PREFIX = self.config.get_as('str', 'APP_ROOT') or '/'
 
@@ -94,10 +107,10 @@ class App(Flask):
             wsgi_app = self.wsgi_app
 
             class PrefixWsgiApp:
-                def __init__(self, prefix: str, app: Callable[[dict[str, str], StartResponse], Iterable[bytes]]):
+                def __init__(self, prefix: str, app: Callable[[dict[str, str], 'StartResponse'], Iterable[bytes]]):
                     self.app, self. prefix = app, prefix
 
-                def __call__(self, environ: dict[str, str], start_response: StartResponse):
+                def __call__(self, environ: dict[str, str], start_response: 'StartResponse'):
                     _, prefix, after = environ['PATH_INFO'].partition(self.prefix)
                     environ['SCRIPT_NAME'], environ['PATH_INFO'] = prefix, after
                     return wsgi_app(environ, start_response)

@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import cast, Generic, TypeVar
 
 import flask_security as fs
@@ -20,8 +20,8 @@ class QHelper(Generic[_T]):
 class Versions(db.Model, QHelper['Versions']):  # type: ignore
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     version: Mapped[str] = db.Column(db.String, nullable=False)
-    created: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
-    modified: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    modified: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     @classmethod
     def last_version(cls):

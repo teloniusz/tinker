@@ -30,7 +30,7 @@ def verify_captcha(data: dict[str, Any]):
     return error
 
 
-def make_resp_data(data: dict[str, Any], code: int = 200):
+def make_resp_data(data: dict[str, Any], code: int = 200) -> dict[str, dict[str, Any]]:
     return {'meta': {'code': code}, 'response': data}
 
 

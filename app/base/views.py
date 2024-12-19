@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Iterable, cast
+from typing import Any, Generator, Iterable, cast
 
 import flask_security as fs
 from flask_security.views import forgot_password, register, reset_password
@@ -21,12 +21,12 @@ def _format_date(date: datetime | None):
         return date.strftime('%F %T')
 
 
-def _serialize_roles(roles: Iterable[Role]):
+def _serialize_roles(roles: Iterable[Role]) -> list[dict[str, Any]]:
     return [{'id': role.id, 'name': role.name} for role in roles]
 
 
-def _get_info(user: User | None):
-    attrs = {
+def _get_info(user: User | None) -> Generator[tuple[str, Any], None, None]:
+    attrs: dict[str, Any] = {
         'username': None,
         'current_login_at': _format_date,
         'create_datetime': _format_date,
@@ -43,7 +43,7 @@ def _get_info(user: User | None):
         'last_login_at': _format_date,
         'roles': _serialize_roles
     }
-    anon_attrs = {
+    anon_attrs: dict[str, Any] = {
         'username': 'anonymous',
         'first_name': 'Anonymous',
         'last_name': 'User',

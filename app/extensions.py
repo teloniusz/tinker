@@ -1,5 +1,6 @@
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, NotRequired, TypeVar, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, TypedDict
+from typing_extensions import NotRequired
 
 import flask_cors
 from flask_mailman import Mail
