@@ -17,6 +17,7 @@
     "bootstrap-icons": "^1.10.5",
     "buffer": "^6.0.3",
     "eslint": "^8.37.0",
+    "http-proxy-middleware": "^3.0.3",
     "jszip": "^3.10.1",
     "prettier": "^3.0.0",
     "react": "^18.2.0",
@@ -57,7 +58,6 @@
     ]
   },
   "options": {
-    "proxy": "http://127.0.0.1:5000/",
     "allowedHosts": [
       "localhost",
       ".localhost",

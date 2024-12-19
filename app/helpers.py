@@ -1,9 +1,13 @@
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from flask import jsonify, make_response
+from sqlalchemy.orm import Query
 import requests
 
 from . import app
+
+
+_T = TypeVar('_T')
 
 
 def verify_captcha(data: dict[str, Any]):
@@ -30,7 +34,7 @@ def verify_captcha(data: dict[str, Any]):
     return error
 
 
-def make_resp_data(data: dict[str, Any], code: int = 200):
+def make_resp_data(data: dict[str, Any], code: int = 200) -> dict[str, dict[str, Any]]:
     return {'meta': {'code': code}, 'response': data}
 
 
@@ -48,3 +52,8 @@ def make_resp(data: dict[str, Any], code: int = 200):
 def make_error(error: str | dict[str, list[str] | str], code: int = 400):
     return make_resp(make_error_data(error, code), code)
 
+
+class QHelper(Generic[_T]):
+    @classmethod
+    def qry(cls) -> Query[_T]:
+        return cls.query # type: ignore

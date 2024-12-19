@@ -1,27 +1,19 @@
-from datetime import datetime, UTC
-from typing import cast, Generic, TypeVar
+from datetime import datetime
+from typing import cast
 
 import flask_security as fs
 from flask_security.models import fsqla_v3 as fsqla
-from sqlalchemy.orm import Query, Mapped
+from sqlalchemy.orm import Mapped
 
 from .. import db
-
-
-_T = TypeVar('_T')
-
-
-class QHelper(Generic[_T]):
-    @classmethod
-    def qry(cls) -> Query[_T]:
-        return cls.query # type: ignore
+from ..helpers import QHelper
 
 
 class Versions(db.Model, QHelper['Versions']):  # type: ignore
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     version: Mapped[str] = db.Column(db.String, nullable=False)
-    created: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
-    modified: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now())
+    modified: Mapped[datetime] = db.Column(db.DateTime, default=lambda: datetime.now(), onupdate=lambda: datetime.now())
 
     @classmethod
     def last_version(cls):

@@ -79,7 +79,8 @@ def upgrade():
     )
 
     try:
-        op.bulk_insert(versions, [{'version': '0.1', 'created': datetime.now().strftime('%F %T'), 'modified': datetime.now().strftime('%F %T')}])
+        now = datetime.now()
+        op.bulk_insert(versions, [{'version': '0.1', 'created': now, 'modified': now}])
         op.bulk_insert(role, [
             {'name': 'admin', 'permissions': ['admin']},
             {'name': 'user', 'permissions': ['user']}
@@ -90,7 +91,7 @@ def upgrade():
                 first_name='',
                 last_name='Administrator',
                 username='admin',
-                password=flask_security.hash_password("s0med33ps3cret"),
+                password=flask_security.utils.hash_password("s0med33ps3cret"),
                 active=True,
                 fs_uniquifier=uuid.uuid4().hex,
                 fs_webauthn_user_handle=uuid.uuid4().hex
