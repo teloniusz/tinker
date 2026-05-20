@@ -3,14 +3,22 @@ import axios from 'axios'
 import { UserInfo } from './models/user'
 import { FetchParams, FetchParamsNorcv, FlaskResponse, is_success, make_resp, RecvParams, SendData } from './models/network'
 
-let socket: Socket | null = null
+let socket: Socket | null = null;
+let urlPrefix = '';
 
-export const getSocket = () => {
+export const getSocket = (uri?: string) => {
   if (!socket) {
-    socket = io()
+    urlPrefix = !uri || uri === '/' ?
+        '' :
+        uri.endsWith('/') ?
+            uri.slice(0, -1) :
+            uri;
+    socket = io({ path: urlPrefix + '/socket.io', transports: ['websocket'] });
   }
   return socket
 }
+
+export const getPrefix = () => urlPrefix;
 
 export const socketConnected = () => !!socket?.connected
 
@@ -21,17 +29,26 @@ const reconnect = () => {
     }
 }
 
-
-const fetch = async <T = string>(uri: string, { opname, config }: FetchParams, data?: object): Promise<T> => {
-    const method = data !== undefined ? 'post': 'get';
+const req = async <T = string>(
+    uri: string, method: 'post' | 'get' | 'put' | 'delete', { opname, config }: FetchParams, data?: object
+): Promise<T> => {
     const errmsg = opname ? `${opname} (${method.toUpperCase()} ${uri})` : `HTTP ${method} to ${uri}`
-    const response = await axios[method]<T>(uri, data, config).catch((error) => {
+    const response = await axios[method]<T>(urlPrefix + uri, data, config).catch((error) => {
         const msg = error instanceof Error ? error.message : `${error}`
         console.log(`Error in ${errmsg}: ${msg}`, error)
         return error.response;
     });
-    return response.data;
+    return response && response.data;
 }
+
+const fetch = async <T = string>(uri: string, params: FetchParams, data?: object) =>
+    req<T>(uri, data !== undefined ? 'post': 'get', params, data)
+
+const httpPut = async (uri: string, data: object) =>
+    req<null>(uri, 'put', {}, data)
+
+const httpDelete = async (uri: string) =>
+    req<null>(uri, 'delete', {})
 
 async function sendrcv(msg: string, { timeout, response, norcv }: FetchParamsNorcv, ...data: SendData[]): Promise<RecvParams<number>>;
 async function sendrcv<T = string>(msg: string, { timeout, response, norcv }: FetchParams, ...data: SendData[]): Promise<RecvParams<T>>;
@@ -63,6 +80,7 @@ async function sendrcv<T = string>(msg: string, { timeout, response, norcv }: Fe
         });
     });
 }
+const send = (msg: string, ...data: SendData[]) => sendrcv(msg, { norcv: true } as FetchParamsNorcv, ...data);
 
 export const getVersion = async <T>() => sendrcv<T>('hello', {}, { data: `now is: ${new Date().toLocaleString()}` });
 

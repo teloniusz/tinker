@@ -1,5 +1,4 @@
 import React, { FormEvent, useCallback, useMemo, useState } from 'react'
-import { GoogleReCaptcha, useGoogleReCaptcha } from "react-google-recaptcha-v3"
 import { Alert, Button, Form, Modal } from 'react-bootstrap'
 import { TTip } from './Tooltip'
 
@@ -9,6 +8,7 @@ import { getUserInfo, logIn, register, reset, sendReset, updateUser } from '../s
 import { useLocation } from 'react-router-dom'
 import { is_success } from '../models/network'
 import { FormItem } from './FormItem'
+import { useCaptcha } from '../hooks/useCaptcha'
 
 
 export const UserModal: React.FC<{
@@ -23,14 +23,15 @@ export const UserModal: React.FC<{
     const [status, res] = await logIn(user, password);
     if (status === 'error') {
       doAlert({ type: 'warning', text: `Login error: ${res}` });
+      setShowLogin(false);
     } else {
       doAlert({ type: 'success', text: 'Logged in successfully' });
       const [status, res] = await getUserInfo();
       if (status === 'success') {
         setUserInfo(res.user);
+        setShowLogin(!res.user.first_name || !res.user.last_name ? 'editProfile' : false);
       }
     }
-    setShowLogin(false);
   }, [doAlert, setShowLogin, setUserInfo]);
 
   const doRegister = useCallback(async (username: string, email: string, password: string, captchaToken: string) => {
@@ -40,17 +41,21 @@ export const UserModal: React.FC<{
       doAlert({ type: 'success', text: 'Register request sent. Please wait for a confirmation email.'});
       setShowLogin(false);
     } else {
-      doAlert({ type: 'error', text: 'Error in the register form'});
+      doAlert({ type: 'warning', text: 'Error in the register form'});
       setErrors(res.response.field_errors)
     }
   }, [doAlert, setShowLogin, setErrors])
 
   const doSendReset = useCallback(async (email: string, captchaToken: string) => {
     const res = await sendReset({ email, token: captchaToken });
-    console.log('send reset:', res)
-    doAlert({ type: 'success', text: 'Reset password request sent. Please wait for an email with a link to the password reset form.'});
-    setShowLogin(false);
-  }, [doAlert, setShowLogin])
+    if (is_success(res)) {
+      doAlert({ type: 'success', text: 'Reset password request sent. Please wait for an email with a link to the password reset form.'});
+      setShowLogin(false);
+    } else {
+      doAlert({ type: 'warning', text: 'Error sending password reset link'});
+      setErrors(res.response.field_errors)
+    }
+  }, [doAlert, setShowLogin, setErrors])
 
   const doReset = useCallback(async (password: string, password_confirm: string, key: string, captchaToken: string) => {
     const res = await reset({ password, password_confirm, key, token: captchaToken });
@@ -72,13 +77,13 @@ export const UserModal: React.FC<{
         setUserInfo(res.user);
       }
     } else {
-      doAlert({ type: 'error', text: 'Error in the user profile form.'});
+      doAlert({ type: 'warning', text: 'Error in the user profile form.'});
       setErrors(res.response.field_errors)
     }
   }, [doAlert, setShowLogin, setUserInfo])
 
   const loc = useLocation();
-  const resetToken = useMemo(() => (loc.pathname.startsWith('/reset/') && loc.pathname.split('/')[2]) || null, [loc]);
+  const resetToken = useMemo(() => (loc.hash.startsWith('#reset/') && loc.hash.split('/')[1]) || null, [loc]);
   switch (showLogin) {
     case 'login':
       return <LoginModal setShowLogin={setShowLogin} logIn={doLogIn} />
@@ -153,22 +158,12 @@ export const RegisterModal: React.FC<{
   errors: Record<string, string[]>;
   setErrors: (el: Record<string, string[]>) => void;
 }> = ({ setShowLogin, registerUser, errors, setErrors }) => {
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const { executeRecaptcha } = useGoogleReCaptcha();
-
-  const handleCaptchaChange = useCallback((token: string | null) => {
-    setCaptchaToken(token);
-  }, [setCaptchaToken]);
+  const { captchaToken, reloadCaptcha, Captcha } = useCaptcha()
 
   const onSubmit = useCallback(async (ev: FormEvent<HTMLElement>) => {
     ev.preventDefault();
     const formData = new FormData(ev.target as HTMLFormElement);
     const dataObj = Object.fromEntries(formData);
-
-    if (!captchaToken) {
-      alert('Please complete the CAPTCHA to proceed.');
-      return;
-    }
 
     if (dataObj.password !== dataObj.password_confirm) {
       setErrors({ password: ['Passwords do not match'], password_confirm: ['Passwords do not match'] });
@@ -179,12 +174,12 @@ export const RegisterModal: React.FC<{
       dataObj.username as string,
       dataObj.email as string,
       dataObj.password as string,
-      captchaToken
+      captchaToken || ''
     );
-    if (errors && executeRecaptcha) {
-      setCaptchaToken(await executeRecaptcha());
+    if (errors) {
+      await reloadCaptcha()
     }
-  }, [captchaToken, registerUser, setErrors, errors, executeRecaptcha]);
+  }, [captchaToken, registerUser, setErrors, errors]);
 
   return (
     <Form onSubmit={onSubmit}>
@@ -205,11 +200,7 @@ export const RegisterModal: React.FC<{
         <FormItem name='email' placeholder='Enter your email' {...{ errors }} required />
         <FormItem name='password' errors={errors} required />
         <FormItem name='password_confirm' label='Retype password' placeholder='Retype your password' {...{ errors }} required />
-        <Form.Group>
-          <div id="captcha">
-            <GoogleReCaptcha onVerify={handleCaptchaChange} />
-          </div>
-        </Form.Group>
+        <Form.Group><Captcha /></Form.Group>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="primary" type="submit">
@@ -229,27 +220,22 @@ export const SendResetModal: React.FC<{
   errors: Record<string, string[]>;
   setErrors: (el: Record<string, string[]>) => void;
 }> = ({ setShowLogin, sendResetPassword, errors }) => {
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-
-  const handleCaptchaChange = useCallback((token: string | null) => {
-    setCaptchaToken(token);
-  }, [setCaptchaToken]);
+  const { captchaToken, reloadCaptcha, Captcha } = useCaptcha()
 
   const onSubmit = useCallback(async (ev: FormEvent<HTMLElement>) => {
     ev.preventDefault();
     const formData = new FormData(ev.target as HTMLFormElement);
     const dataObj = Object.fromEntries(formData);
 
-    if (!captchaToken) {
-      alert('Please complete the CAPTCHA to proceed.');
-      return;
-    }
-
     await sendResetPassword(
       dataObj.email as string,
-      captchaToken
+      captchaToken || ''
     );
-  }, [captchaToken, sendResetPassword]);
+
+    if (errors) {
+      await reloadCaptcha()
+    }
+  }, [captchaToken, sendResetPassword, reloadCaptcha]);
 
   return (
     <Form onSubmit={onSubmit}>
@@ -265,13 +251,9 @@ export const SendResetModal: React.FC<{
             </>
           }
         >
-          <FormItem name='email' required />
+          <FormItem name='email' {...{ errors }} required />
         </TTip>
-        <Form.Group>
-          <div id="captcha">
-            <GoogleReCaptcha onVerify={handleCaptchaChange} />
-          </div>
-        </Form.Group>
+        <Form.Group><Captcha /></Form.Group>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="primary" type="submit">
@@ -292,22 +274,12 @@ export const ResetModal: React.FC<{
   errors: Record<string, string[]>;
   setErrors: (el: Record<string, string[]>) => void;
 }> = ({ setShowLogin, resetPassword, resetToken, errors, setErrors }) => {
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const { executeRecaptcha } = useGoogleReCaptcha();
-
-  const handleCaptchaChange = useCallback((token: string | null) => {
-    setCaptchaToken(token);
-  }, [setCaptchaToken]);
+  const { captchaToken, reloadCaptcha, Captcha } = useCaptcha()
 
   const onSubmit = useCallback(async (ev: FormEvent<HTMLElement>) => {
     ev.preventDefault();
     const formData = new FormData(ev.target as HTMLFormElement);
     const dataObj = Object.fromEntries(formData);
-
-    if (!captchaToken) {
-      alert('Please complete the CAPTCHA to proceed.');
-      return;
-    }
 
     if (dataObj.password !== dataObj.password_confirm) {
       setErrors({ password: ['Passwords do not match'], password_confirm: ['Passwords do not match'] });
@@ -318,17 +290,17 @@ export const ResetModal: React.FC<{
       dataObj.password as string,
       dataObj.password_confirm as string,
       resetToken,
-      captchaToken
+      captchaToken || ''
     );
-    if (errors && executeRecaptcha) {
-      setCaptchaToken(await executeRecaptcha());
+    if (errors) {
+      await reloadCaptcha()
     }
-  }, [captchaToken, resetPassword, resetToken, setErrors, errors, executeRecaptcha]);
+  }, [captchaToken, resetPassword, resetToken, setErrors, errors, reloadCaptcha]);
 
   return (
     <Form onSubmit={onSubmit}>
       <Modal.Header closeButton>
-        <Modal.Title>Send password reset instructions</Modal.Title>
+        <Modal.Title>Change password</Modal.Title>
       </Modal.Header>
       <Modal.Body>
       {errors._ && <Alert variant='danger'>{errors._.join(", ")}</Alert>}
@@ -344,11 +316,7 @@ export const ResetModal: React.FC<{
             <FormItem name='password_confirm' label='Retype password' placeholder='Retype your password' required {...{ errors }} />
           </>
         </TTip>
-        <Form.Group>
-          <div id="captcha">
-            <GoogleReCaptcha onVerify={handleCaptchaChange} />
-          </div>
-        </Form.Group>
+        <Form.Group><Captcha /></Form.Group>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="primary" type="submit">
@@ -369,22 +337,12 @@ export const UserProfileModal: React.FC<{
   errors: Record<string, string[]>;
   setErrors: (el: Record<string, string[]>) => void;
 }> = ({ setShowLogin, updateProfile, userInfo, errors, setErrors }) => {
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const { executeRecaptcha } = useGoogleReCaptcha();
-
-  const handleCaptchaChange = useCallback((token: string | null) => {
-    setCaptchaToken(token);
-  }, [setCaptchaToken]);
+  const { captchaToken, reloadCaptcha, Captcha } = useCaptcha()
 
   const onSubmit = useCallback(async (ev: FormEvent<HTMLElement>) => {
     ev.preventDefault();
     const formData = new FormData(ev.target as HTMLFormElement);
     const dataObj = Object.fromEntries(formData);
-
-    if (!captchaToken) {
-      alert('Please complete the CAPTCHA to proceed.');
-      return;
-    }
 
     if (dataObj.password !== dataObj.password_confirm) {
       setErrors({ password: ['Passwords do not match'], password_confirm: ['Passwords do not match'] });
@@ -396,12 +354,12 @@ export const UserProfileModal: React.FC<{
       dataObj.last_name as string,
       dataObj.password ? dataObj.password as string : null,
       dataObj.email as string,
-      captchaToken
+      captchaToken || ''
     );
-    if (errors && executeRecaptcha) {
-      setCaptchaToken(await executeRecaptcha());
+    if (errors) {
+      await reloadCaptcha()
     }
-  }, [captchaToken, updateProfile, setErrors, errors, executeRecaptcha]);
+  }, [captchaToken, updateProfile, setErrors, errors, reloadCaptcha]);
 
   return (
     <Form onSubmit={onSubmit}>
@@ -411,18 +369,14 @@ export const UserProfileModal: React.FC<{
       <Modal.Body>
       {errors._ && <Alert variant='danger'>{errors._.join(", ")}</Alert>}
         <FormItem name="username" value={userInfo.username} readOnly />
-        <FormItem name="first_name" defaultValue={userInfo.first_name} {...{ errors }} />
-        <FormItem name="last_name" defaultValue={userInfo.last_name} {...{ errors }} />
-        <FormItem name="email" defaultValue={userInfo.email} {...{ errors }} />
+        <FormItem name="first_name" defaultValue={userInfo.first_name} required {...{ errors }} />
+        <FormItem name="last_name" defaultValue={userInfo.last_name} required {...{ errors }} />
+        <FormItem name="email" defaultValue={userInfo.email} required {...{ errors }} />
         <TTip text="Omit the password to keep it unchanged"><>
           <FormItem name='password' {...{ errors }} />
           <FormItem name='password_confirm' label='Retype password' placeholder='Retype your password' {...{ errors }} />
         </></TTip>
-        <Form.Group>
-          <div id="captcha">
-            <GoogleReCaptcha onVerify={handleCaptchaChange} />
-          </div>
-        </Form.Group>
+        <Form.Group><Captcha /></Form.Group>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="primary" type="submit">

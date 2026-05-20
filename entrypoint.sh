@@ -23,7 +23,7 @@ max_requests_jitter = 100
 keepalive = 5
 timeout = 120
 worker_connections = 1000
-worker_class = 'eventlet'
+worker_class = 'geventwebsocket.gunicorn.workers.GeventWebSocketWorker'
 EOF
 
 mkdir -p /code/supervisord/conf.d/
@@ -51,7 +51,6 @@ serverurl=unix:///code/supervisord/supervisor.sock
 files = /code/supervisord/conf.d/*.conf
 EOF
 
-
 cat >/code/supervisord/conf.d/redis.conf <<EOF
 [program:redis]
 command=redis-server
@@ -67,7 +66,7 @@ mkdir -p var/log var/run
 
 ./ctl env shell -- -c "supervisord -c /code/supervisord/supervisord.conf && \
  supervisorctl -c /code/supervisord/supervisord.conf start redis"
-./ctl env run gunicorn
+[[ -f /tmp/debug ]] && echo "debug detected, not starting gunicorn" || ./ctl env run gunicorn
 
 trap cleanup EXIT
 tail -F var/log/gunicorn-access.log var/log/gunicorn-error.log var/log/app.log \

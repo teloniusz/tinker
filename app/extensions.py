@@ -54,6 +54,9 @@ def init_socketio(app: 'App'):
         def __init__(self, io: SocketIO):
             self.io = io
 
+        def run(self, app, host=None, port=None, **kwargs):
+            self.io.run(app, host, port, **kwargs)
+
         def emit(self, msg: str, *args: Any, **kwargs: Any) -> None:
             return self.io.emit(msg, *args, **kwargs) # type: ignore
 
@@ -85,7 +88,7 @@ def init_socketio(app: 'App'):
     ] if '*' not in origins else '*'
     message_queue = app.get_config('FLASK_SOCKETIO', dict, MQConf()).get('message_queue_url', 'redis://')
     return SocketOps(SocketIO(app, cors_allowed_origins=urls, manage_session=False, async_handlers=True,
-                              message_queue=message_queue))
+                              async_mode='gevent', message_queue=message_queue, path=(app.PREFIX.rstrip('/') + '/socket.io').lstrip('/')))
 
 
 def init_security():
@@ -98,7 +101,7 @@ def init_security_stage2(app: 'App'):
     app.config.update({
         'SECURITY_CONFIRMABLE': True,
         'SECURITY_CONFIRM_URL': '/api/confirm',
-        'SECURITY_POST_CONFIRM_VIEW': '/main#confirmed',
+        'SECURITY_POST_CONFIRM_VIEW': f'{app.PREFIX}/main#confirmed',
         #'SECURITY_CONFIRM_EMAIL_WITHIN': '5 days',
         'SECURITY_SEND_CONFIRMATION_TEMPLATE': 'security/send_confirmation.html',
         'SECURITY_EMAIL_SUBJECT_CONFIRM': f'{app.APPNAME}: Please confirm your email',
@@ -108,7 +111,7 @@ def init_security_stage2(app: 'App'):
         'SECURITY_EMAIL_SUBJECT_PASSWORD_CHANGE_NOTICE': f'{app.APPNAME}: Your password has been changed',
         'SECURITY_RECOVERABLE': True,
         'SECURITY_RESET_URL': '/reset',
-        'SECURITY_POST_RESET_VIEW': '/main#reset',
+        'SECURITY_POST_RESET_VIEW': f'{app.PREFIX}/main#reset',
         'SECURITY_RESET_PASSWORD_TEMPLATE': 'security/reset_password.html',
         'SECURITY_FORGOT_PASSWORD_TEMPLATE': 'security/forgot_password.html',
         #'SECURITY_RESET_PASSWORD_WITHIN': '1 days',

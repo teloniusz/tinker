@@ -3,7 +3,7 @@ services:
     env_file: docker-compose.env
     image: postgres:${POSTGRES_VERSION:-16}
     restart: always
-    user: ${USERID}
+    user: ${USERID:-magnetstein}
     volumes:
       - "./data/db:/var/lib/postgresql/data"
     networks:
@@ -37,10 +37,12 @@ services:
       - intnet
     volumes:
       - ./data:/code/data
+      - ./cfg/config_prod.yaml:/code/cfg/config_prod.yaml
+    restart: always
 
 networks:
   intnet:
     ipam:
       config:
-        - subnet: 172.48.11.0/24
-          gateway: 172.48.11.1
+        - subnet: ${DOCKER_SUBNET:-172.48.11.0/24}
+          gateway: ${DOCKER_GATEWAY:-172.48.11.1}

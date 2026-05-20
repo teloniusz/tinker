@@ -1,13 +1,14 @@
 from datetime import datetime
 from typing import Any, Generator, Iterable, cast
 
+import click
 import flask_security as fs
 from flask_security.views import forgot_password, register, reset_password
 from flask_security.forms import ResetPasswordForm, build_form_from_request
 from flask_security.utils import base_render_json
 from flask_security.recoverable import reset_password_token_status  # type: ignore
 from flask_session import base as session_base
-from flask import request, session
+from flask import request, session, cli
 
 from .models import Versions, Role, User, current_user
 from .. import app
@@ -78,6 +79,48 @@ def _do_login(username: str, password: str):
     return user, 'OK'
 
 
+@fs.cli.users.command('ls', short_help='List users')
+@cli.with_appcontext
+def cli_list_users():
+    for user in User.query.order_by(User.id.asc()):
+        confirmed = "confirmed" if user.confirmed_at else "unconfirmed"
+        active = "active" if user.active else "inactive"
+        click.echo(f'{user.id:>3}. {str(user):<80} {confirmed:>11} {active:>8}')
+
+
+@fs.cli.users.command('confirm', short_help='Confirm user')
+@click.argument('user')
+@cli.with_appcontext
+@fs.cli.commit
+def cli_confirm_user(user: str):
+    """Confirm a user
+    """
+    user_obj = fs.cli.lookup_identity(user)
+    if user_obj is None:
+        raise click.UsageError('User not found')
+    user_obj.confirmed_at = datetime.now()
+
+
+@fs.cli.users.command('unconfirm', short_help='Unonfirm user')
+@click.argument('user')
+@cli.with_appcontext
+@fs.cli.commit
+def cli_unconfirm_user(user: str):
+    """Confirm a user
+    """
+    user_obj = fs.cli.lookup_identity(user)
+    if user_obj is None:
+        raise click.UsageError('User not found')
+    user_obj.confirmed_at = None
+
+
+@fs.cli.users.command('list', short_help='List users')
+@cli.with_appcontext
+def users_list():
+    for user in User.query.order_by(User.id.asc()):
+        click.echo(f'{user.id:>3}.{user}')
+
+
 @bp.route('/login', methods=['POST'])
 def login(data: dict[str, str] | None = None):
     if not data:
@@ -103,6 +146,11 @@ def logout():
         return ['success', 'User logged out']
     app.logger.info('Logout: user not logged in')
     return ['success', 'No user logged']
+
+
+@app.sio.on('connect')
+def on_connect():
+    app.logger.info('WebSocket connected')
 
 
 @app.sio.onmsg('hello')
