@@ -1,8 +1,8 @@
 APP_NAME: tINKer
-APP_ROOT: /api/
 SQLALCHEMY_DATABASE_URI: sqlite:///{app.ROOTDIR}/var/tinker.db
 OTHER_CONFIGS:
   - /etc/tinker.cfg
+  - "{app.CONFDIR}/config_prod.yaml"
   - "{app.CONFDIR}/config_local.yaml"
 
 SECRET_KEY: LCOQDrEHZoDxm5KWOHygd6SFdhxZWu9S0VEOaMAOv5o           # please override in prod conf (secrets.token_hex)

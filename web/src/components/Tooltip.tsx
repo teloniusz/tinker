@@ -9,7 +9,9 @@ export const TTip: React.FC<{ placement?: Placement; text: ReactNode; children: 
 }) => {
   return (
     <OverlayTrigger placement={placement} overlay={(props) => <Tooltip {...props}>{text}</Tooltip>}>
+      <div>
       {children}
+      </div>
     </OverlayTrigger>
   )
 }

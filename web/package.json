@@ -60,6 +60,7 @@
       "last 1 safari version"
     ]
   },
+  "homepage": "/tinker/",
   "options": {
     "allowedHosts": [
       "localhost",

@@ -3,17 +3,15 @@ import logging
 import os
 import secrets
 import sys
-from typing import Any, Callable, Iterable, TypeVar, TYPE_CHECKING, cast
+from typing import Any, Callable, TypeVar
 from os import path as op
 
 import yaml
 from flask import Flask, Blueprint
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .confs import ConfVal, ConfDict
 from . import extensions
-
-if TYPE_CHECKING:  # pragma: no cover
-    from _typeshed.wsgi import StartResponse
 
 _T = TypeVar('_T')
 
@@ -68,17 +66,23 @@ class App(Flask):
                     if not cfg:
                         cfg = {}
                     if not isinstance(cfg, dict):
-                        raise TypeError
+                        raise TypeError(f'found: {type(cfg)}')
             except (IOError, FileNotFoundError) as exc:
-                self.logger.debug('Cannot read config file: %s', exc)
-            except (TypeError, yaml.error.YAMLError):
-                self.logger.warning('Invalid file format: expected yaml dict')
+                self.logger.debug('%s: Cannot read config file: %s', fname, exc)
+            except (TypeError, yaml.error.YAMLError) as exc:
+                self.logger.warning('%s: Invalid file format: expected yaml dict: %s', fname, exc)
             else:
                 for key in list(cfg.keys()):
                     cfg_ready[key] = cfg[key] = format_value(cfg[key], cfg={**config, **cfg_ready}, app=self)
                 cfg_ready.update(cfg)
                 self.logger.info('Loaded config: %s', fname)
         return cfg_ready
+
+    def wsgi_app(self, environ: dict[str, str], start_response: Callable[..., Any]):
+        if self.PREFIX.lstrip('/'):
+            _, prefix, after = environ['PATH_INFO'].partition(self.PREFIX)
+            environ['SCRIPT_NAME'], environ['PATH_INFO'] = prefix, after
+        return ProxyFix(super().wsgi_app, x_for=1, x_host=1)(environ, start_response)  # type: ignore
 
     def __init__(self):
         super().__init__(__name__, static_folder=self.HTMLDIR, static_url_path='')  # type: ignore
@@ -92,30 +96,20 @@ class App(Flask):
                     last_fname = cfiles[-1]
                     generated = str(generator())
                     try:
-                        with open(last_fname, 'a') as last_cfile:
-                            last_cfile.write(f'{key}: {generated!r}\n')
-                    except OSError:
-                        self.logger.warning(f'Failed to write {key!r} to the {last_fname!r} file. Your setup may be insecure.')
+                        with open(last_fname, 'r+') as last_cfile:
+                            content = last_cfile.read()
+                            last_cfile.seek(len(content) - (1 if content.endswith('\n') else 0))
+                            last_cfile.write(f'\n{key}: {generated!r}\n')
+                    except OSError as exc:
+                        self.logger.warning('Failed to write %r to the %r file: %s. Your setup may be insecure.',
+                                            key, last_fname, exc)
                     else:
+                        self.logger.info('Written missing %r key to %s', key, last_fname)
                         add_config[key] = generated
             self.config.update(add_config)
 
         self.APPNAME = self.config['str', 'APP_NAME']
         self.PREFIX = self.config.get_as('str', 'APP_ROOT') or '/'
-
-        if self.PREFIX.lstrip('/'):
-            wsgi_app = self.wsgi_app
-
-            class PrefixWsgiApp:
-                def __init__(self, prefix: str, app: Callable[[dict[str, str], 'StartResponse'], Iterable[bytes]]):
-                    self.app, self. prefix = app, prefix
-
-                def __call__(self, environ: dict[str, str], start_response: 'StartResponse'):
-                    _, prefix, after = environ['PATH_INFO'].partition(self.prefix)
-                    environ['SCRIPT_NAME'], environ['PATH_INFO'] = prefix, after
-                    return wsgi_app(environ, start_response)
-
-            self.wsgi_app = PrefixWsgiApp(self.PREFIX, self.wsgi_app)
 
         self.logger.debug('Database URL: %r', self.config['SQLALCHEMY_DATABASE_URI'])
         self.db = extensions.init_db(self)
@@ -133,7 +127,7 @@ class App(Flask):
         if not isinstance(val, val_type):
             self.logger.warning('Configuration error: %s: invalid type', key)
             return default
-        return cast(_T, val)
+        return val   # pyright: ignore[reportReturnType]
 
     def init(self):
         extensions.init_security_stage2(self)

@@ -4,11 +4,11 @@ import { NavbarSection } from './NavBar'
 import classes from './Layout.module.css'
 import Footer from './Footer'
 
-const Layout: React.FC<{ children: ReactNode }> = ({ children }) => {
+const Layout: React.FC<{ baseUrl: string, children: ReactNode }> = ({ baseUrl, children }) => {
   return (
     <Container fluid className='m-3 mx-auto shadow' style={{ paddingBottom: '20px' }}>
       <Fragment>
-        <NavbarSection />
+        <NavbarSection baseUrl={baseUrl} />
         <main className={classes.main}>{children}</main>
         <Footer />
       </Fragment>

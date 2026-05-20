@@ -6,12 +6,13 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { checkReset, getSocket, getUserInfo, logOut } from '../services'
 import { UserInfo, UserDialogType } from '../models/user'
 import { UserModal } from './UserModals'
+import { TTip } from '../components/Tooltip'
 import { NavLink } from 'react-router-dom'
 import Container from 'react-bootstrap/Container'
 import "bootstrap-icons/font/bootstrap-icons.css"
 
 
-export const NavbarSection: React.FC = () => {
+export const NavbarSection: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
   const [state, dispatchState] = useAppState()
   const [showLogin, setShowLogin] = useState<UserDialogType>(false)
   const navigate = useNavigate()
@@ -33,23 +34,23 @@ export const NavbarSection: React.FC = () => {
   useEffect(() => {
     const onConnect = () => setIsConnected(true)
     const onDisconnect = () => setIsConnected(false)
-    const socket = getSocket()
+    const socket = getSocket(baseUrl)
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
 
     let match;
     if (locData.hash === '#confirmed') {
       doAlert({ type: 'success', text: 'Email confirmed' });
-      window.location.hash = '';
+      navigate({ ...locData, hash: '' });
       //setTimeout(() => setShowLogin('login'), 3000);
     } else if (locData.hash === '#reset') {
       doAlert({ type: 'success', text: 'Password successfully reset' });
-      window.location.hash = '';
+      navigate({ ...locData, hash: '' });
       setTimeout(() => setShowLogin('login'), 3000);
-    } else if ((match = locData.pathname.match(/^\/reset\/(.+)/)) != null) {
+    } else if ((match = locData.hash.match(/^#reset\/(.+)/)) != null) {
       checkReset(match[1]).then(res => {
         if ('error' in res) {
-          window.location.pathname = '/main';
+          navigate(`${baseUrl}main`);
           return;
         }
         setShowLogin('reset')
@@ -99,6 +100,9 @@ export const NavbarSection: React.FC = () => {
                   </NavDropdown>
                 </Nav>
               </Navbar.Collapse>
+          <TTip
+              placement='bottom'
+              text={state.isConnected ? 'Backend connected and ready': 'Backend disconnected. Site functionality temporarily restricted.'}>
           <div
             style={{
               background: state.isConnected ? 'green' : 'red',
@@ -107,6 +111,7 @@ export const NavbarSection: React.FC = () => {
               height: '20px',
               margin: '7px',
             }}></div>
+          </TTip>
         </div>
       </>
     },
@@ -128,9 +133,9 @@ export const NavbarSection: React.FC = () => {
         </Modal>
         <Container>
           <Navbar.Brand as={NavLink} to='/'>
-            <img alt='Logo UW' src='/orzelek60.png' />
-            <img alt='Logo MIM' src='/mim75x60.png' />
-            <img alt='Logo tINKer' src='/logo60.png' />
+            <img alt='Logo UW' src={`${baseUrl}/orzelek60.png`} />
+            <img alt='Logo MIM' src={`${baseUrl}/mim75x60.png`} />
+            <img alt='Logo tINKer' src={`${baseUrl}/logo60.png`} />
             &nbsp;&nbsp;tINKer
           </Navbar.Brand>
           <Navbar.Toggle />
