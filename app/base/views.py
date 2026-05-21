@@ -14,7 +14,7 @@ from .models import Versions, Role, User, current_user
 from .. import app
 from ..helpers import make_error, make_error_data, make_resp_data, verify_captcha
 
-bp = app.create_blueprint(__name__, url_prefix='/base')
+bp = app.create_blueprint(__name__, url_prefix='/api/base')
 
 
 def _format_date(date: datetime | None):
