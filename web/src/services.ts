@@ -141,3 +141,21 @@ export const updateUser = async (
         await sendrcv<FlaskResponse>('update_profile', {}, data.first_name, data.last_name, data.password, data.email, data.token)
     )
 }
+
+// Data sets stubs
+export const getDatasets = async () => {
+    return Promise.resolve([
+        { id: 1, datasetName: 'Dataset 1', filename: 'file1.csv', fileCount: 5 },
+        { id: 2, datasetName: 'Dataset 2', filename: 'file2.csv', fileCount: 1 },
+    ]);
+};
+
+export const downloadDataset = async (id: number) => {
+    console.log(`Downloading dataset ${id}`);
+    return Promise.resolve(new Blob(['stub content for dataset ' + id], { type: 'text/plain' }));
+};
+
+export const removeDataset = async (id: number) => {
+    console.log(`Removing dataset ${id}`);
+    return Promise.resolve({ status: 'success' });
+};

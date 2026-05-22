@@ -56,13 +56,21 @@ export const NavbarSection: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
         setShowLogin('reset')
       });
     }
-    getUserInfo().then(([status, res]) => status === 'success' && setUserInfo(res.user))
+    getUserInfo()
+      .then(([status, res]) => {
+        if (status === 'success') {
+          setUserInfo(res.user)
+        } else {
+          setUserInfo({ id: 0, first_name: '', last_name: '' })
+        }
+      })
+      .catch(() => setUserInfo({ id: 0, first_name: '', last_name: '' }))
 
     return () => {
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
     }
-  }, [dispatchState, setIsConnected, setUserInfo, setShowLogin, doAlert, locData.hash, locData.pathname])
+  }, [dispatchState, setIsConnected, setUserInfo, setShowLogin, doAlert, navigate, locData, baseUrl])
 
   const doLogOut = useCallback(async () => {
     await logOut();
@@ -144,7 +152,7 @@ export const NavbarSection: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
               <Nav.Link as={NavLink} to='/'>
                 Home
               </Nav.Link>
-              {state.userInfo.id ? <Nav.Link as={NavLink} to='/datafiles'>Data Files</Nav.Link> : <></>}
+              {state.userInfo.id ? <Nav.Link as={NavLink} to='/datasets'>Data sets</Nav.Link> : <></>}
             </Nav>
             <UserDot />
           </Navbar.Collapse>

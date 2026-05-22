@@ -52,8 +52,9 @@ The indicator papers can be then analysed by laser ablation inductively
 coupled plasma mass spectrometry (LA-ICP-MS), which provides
 multielemental information on indicator composition (<a href={bibl.WagnerCzajka2021}>Wagner and Czajka,
 2021</a>).
-Subsequent prediction using
-<a href="https://github.com/BDomzal/inks/tree/main">InksNet</a> enables
+Subsequent prediction using 
+<a href="https://github.com/BDomzal/inks/tree/main">
+<img alt="InksNet logo" src={`${baseUrl}/inksnet.svg`} style={{ width: 20, height: 20, margin: '0 2px 2px 3px' }}/>InksNet</a> enables
 reconstructing information about the composition of the original ink.
 </p>
 <p>

@@ -179,7 +179,7 @@ export const RegisterModal: React.FC<{
     if (errors) {
       await reloadCaptcha()
     }
-  }, [captchaToken, registerUser, setErrors, errors]);
+  }, [captchaToken, registerUser, setErrors, reloadCaptcha, errors]);
 
   return (
     <Form onSubmit={onSubmit}>
@@ -235,7 +235,7 @@ export const SendResetModal: React.FC<{
     if (errors) {
       await reloadCaptcha()
     }
-  }, [captchaToken, sendResetPassword, reloadCaptcha]);
+  }, [captchaToken, sendResetPassword, reloadCaptcha, errors]);
 
   return (
     <Form onSubmit={onSubmit}>

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button, Col, Container, Modal, Row } from "react-bootstrap";
 import { UploadModal } from "../components/FileModals";
-import { DataFilesBox } from "../components/DataFilesBox";
+import { DataSetsTable } from "../components/DataFilesBox";
 
-const DataFilesPage: React.FC = () => {
+const DataSetsPage: React.FC = () => {
     const [showUpload, setShowUpload] = useState(false)
 
     return <>
@@ -14,8 +14,8 @@ const DataFilesPage: React.FC = () => {
         <Row>
             <Col></Col>
             <Col md={12}>
-                <h4>Browse data files</h4>
-                <DataFilesBox/>
+                <h4>Browse data sets</h4>
+                <DataSetsTable/>
                 <Button onClick={() => setShowUpload(true)}>Upload a file</Button>
             </Col>
             <Col></Col>
@@ -24,4 +24,4 @@ const DataFilesPage: React.FC = () => {
     </>
 }
 
-export default DataFilesPage;
+export default DataSetsPage;

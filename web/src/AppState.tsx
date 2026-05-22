@@ -11,6 +11,7 @@ export interface AlertData {
 export interface AppState {
   isConnected: boolean
   userInfo: UserInfo
+  userInfoReady: boolean
   estimationInProgress: boolean
   estimationErrorMessage: string | null
   alert: AlertData | null
@@ -21,6 +22,7 @@ export type DispatchState = (dispatch: (state: AppState) => AppState) => void
 const initialState: AppState = {
   isConnected: socketConnected(),
   userInfo: { id: 0, first_name: '', last_name: '' },
+  userInfoReady: false,
   estimationInProgress: false,
   estimationErrorMessage: null,
   alert: null,
@@ -39,7 +41,7 @@ const reducer = (state: AppState, action: Action) => {
     }
     case 'USER_INFO': {
       const { userInfo } = action
-      return { ...state, userInfo }
+      return { ...state, userInfo, userInfoReady: true }
     }
     case 'SET_ALERT': {
       const { alert } = action
