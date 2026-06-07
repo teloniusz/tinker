@@ -1,8 +1,10 @@
+from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, TypedDict
 from typing_extensions import NotRequired
 
 import flask_cors
+from flask import request
 from flask_mailman import Mail
 from flask_migrate import Migrate
 from flask_security.core import Security
@@ -53,6 +55,7 @@ def init_socketio(app: 'App'):
 
         def __init__(self, io: SocketIO):
             self.io = io
+            self.tp = ThreadPoolExecutor(max_workers=2)
 
         def run(self, app, host=None, port=None, **kwargs):
             self.io.run(app, host, port, **kwargs)
@@ -63,9 +66,13 @@ def init_socketio(app: 'App'):
         def on(self, message: str, namespace: str | None = None):
             return self.io.on(message, namespace)
 
+        def start_background_task(self, target: Callable[..., Any], *args: Any, **kwargs: Any):
+            return self.io.start_background_task(target, *args, **kwargs)
+
         def onmsg(self, message: str, namespace: str | None = None):
             decorator = self.on(message, namespace)
             return_msg = f'{message}_response'
+            complete_msg = f'{message}_complete'
             def my_decorator(func: Callable[..., Any]):
                 @wraps(func)
                 def wrapped(*args: Any, **kwargs: Any):
@@ -74,6 +81,22 @@ def init_socketio(app: 'App'):
                     except Exception as exc:
                         self.emit(return_msg, ['error', str(exc)])
                     else:
+                        if callable(resp):
+                            sid = getattr(request, 'sid', None)
+                            if not sid:
+                                self.emit(return_msg, ['error', 'Unable to determine websocket client session'])
+                                return None
+
+                            def task():
+                                with app.app_context():
+                                    try:
+                                        result = resp(sid)
+                                    except Exception as exc:
+                                        self.emit(complete_msg, ['error', str(exc)], room=sid)
+                                    else:
+                                        self.emit(complete_msg, ['success', result], room=sid)
+                            self.tp.submit(task)
+                            return None
                         self.emit(return_msg, ['success', resp])
                 return decorator(wrapped)
             return my_decorator

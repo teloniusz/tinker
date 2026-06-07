@@ -5,6 +5,7 @@ flask-cors
 flask-babel
 flask-migrate
 flask-security-too[fsqla,common]
+libpass
 flask-session
 flask-socketio
 flask-sqlalchemy
@@ -13,6 +14,8 @@ gevent-websocket
 gunicorn
 greenlet
 matplotlib
+numpy
+pandas
 psycopg2-binary
 pytest-cov
 python-magic

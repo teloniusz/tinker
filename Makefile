@@ -42,7 +42,7 @@ debug:
 			sleep 1; \
 			[[ $$ENV_UPDATE ]] && ./ctl env update; \
 			sed -ri "/^(daemon|accesslog|errorlog) =/s/^/\# /" gunicorn.conf.py ; \
-			gunicorn --log-level info --reload; \
+			gunicorn --log-level info; \
 			echo "ok!"; \
 			bash; \
 		' 	|| { echo "failed!"; bash; true; }; \
