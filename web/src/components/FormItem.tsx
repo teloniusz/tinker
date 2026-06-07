@@ -1,4 +1,4 @@
-import { MouseEventHandler, ReactElement } from "react";
+import { ChangeEventHandler, MouseEventHandler, ReactElement } from "react";
 import { Form } from "react-bootstrap"
 
 
@@ -29,6 +29,7 @@ export const FormItem: React.FC<{
     rows?: number
     cols?: number
     onClick?: MouseEventHandler
+    onChange?: ChangeEventHandler
 }> = ({ name, label, placeholder, type, readOnly, errors, rows, cols, ...rest }) => {
     const id = `input${capitalize(name)}`;
     const err = errors || {};
@@ -59,14 +60,16 @@ export const FormSelect: React.FC<{
     readOnly?: boolean
     errors?: Record<string, string[]>
     onClick?: MouseEventHandler
+    value?: string
     children: ReactElement[]
-}> = ({ name, label, errors, children, ...rest }) => {
+    onChange?: React.ChangeEventHandler<HTMLSelectElement>
+}> = ({ name, label, errors, value, children, ...rest }) => {
     const id = `input${capitalize(name)}`;
     const err = errors || {};
     return (
         <Form.Group className="mb-3">
             <Form.Label htmlFor={id}>{label || capitalize(name)}</Form.Label>
-            <Form.Select {...{ name, ...rest, isInvalid: !!err[name] }}>
+            <Form.Select {...{ name, value, ...rest, isInvalid: !!err[name] }}>
                 {children}
             </Form.Select>
         </Form.Group>

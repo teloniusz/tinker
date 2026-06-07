@@ -12,6 +12,7 @@ export interface AppState {
   isConnected: boolean
   userInfo: UserInfo
   userInfoReady: boolean
+  isAdmin: boolean
   estimationInProgress: boolean
   estimationErrorMessage: string | null
   alert: AlertData | null
@@ -23,6 +24,7 @@ const initialState: AppState = {
   isConnected: socketConnected(),
   userInfo: { id: 0, first_name: '', last_name: '' },
   userInfoReady: false,
+  isAdmin: false,
   estimationInProgress: false,
   estimationErrorMessage: null,
   alert: null,
@@ -41,7 +43,8 @@ const reducer = (state: AppState, action: Action) => {
     }
     case 'USER_INFO': {
       const { userInfo } = action
-      return { ...state, userInfo, userInfoReady: true }
+      const isAdmin = (userInfo.roles || []).some(r => r.name === 'admin');
+      return { ...state, userInfo, isAdmin, userInfoReady: true }
     }
     case 'SET_ALERT': {
       const { alert } = action

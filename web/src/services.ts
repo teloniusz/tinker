@@ -58,29 +58,42 @@ async function sendrcv<T = string>(msg: string, { timeout, response, norcv }: Fe
     return new Promise((resolve, reject) => {
         const start = Date.now()
         const timeoutId = norcv && !timeout ? null : setTimeout(() => {
-            reject(`Timeout: Did not receive ${respmsg} event`)
+            reject(new Error(`Timeout: Did not receive ${respmsg} event`))
         }, timeout || 15000);
-        if (!norcv && timeoutId) {
+        if (!norcv) {
             socket.once(respmsg, (res: RecvParams<T>) => {
-                clearTimeout(timeoutId);
-                try {
-                    const [,] = res;
-                    resolve(res)
-                } catch (error) {
-                    reject(`Couldn't unpack message: ${res}`)
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
                 }
+                if (!Array.isArray(res) || res.length !== 2) {
+                    reject(new Error(`Invalid response format for ${respmsg}: ${JSON.stringify(res)}`))
+                    return
+                }
+                resolve(res)
             })
         }
         socket.emit(msg, ...data, () => {
             if (norcv) {
                 if (timeoutId !== null)
                     clearTimeout(timeoutId);
-                resolve(Date.now() - start);
+                resolve([ 'success', Date.now() - start ] as RecvParams<number>);
             }
         });
     });
 }
 const send = (msg: string, ...data: SendData[]) => sendrcv(msg, { norcv: true } as FetchParamsNorcv, ...data);
+
+const unwrapSocketResponse = <T>(resp: RecvParams<any>): T => {
+    const [status, payload] = resp as any;
+    if (status === 'error') {
+        const msg = typeof payload === 'string' ? payload : JSON.stringify(payload);
+        throw new Error(msg || 'Socket error');
+    }
+    if (payload && typeof payload === 'object' && 'meta' in payload && 'response' in payload) {
+        return payload.response as T;
+    }
+    return payload as T;
+};
 
 export const getVersion = async <T>() => sendrcv<T>('hello', {}, { data: `now is: ${new Date().toLocaleString()}` });
 
@@ -144,18 +157,101 @@ export const updateUser = async (
 
 // Data sets stubs
 export const getDatasets = async () => {
-    return Promise.resolve([
-        { id: 1, datasetName: 'Dataset 1', filename: 'file1.csv', fileCount: 5 },
-        { id: 2, datasetName: 'Dataset 2', filename: 'file2.csv', fileCount: 1 },
-    ]);
+    // Call the Flask REST endpoint to list datasets
+    const res = await fetch<{ datasets: any[] }>('/api/datasets/list', {});
+    return (res && res.datasets) ? res.datasets : [];
 };
 
 export const downloadDataset = async (id: number) => {
-    console.log(`Downloading dataset ${id}`);
-    return Promise.resolve(new Blob(['stub content for dataset ' + id], { type: 'text/plain' }));
+    // Use the socket.io endpoint to request the original dataset (returns base64)
+    const resp = await sendrcv<any>('get_orig_dataset', {}, id) as RecvParams<any>;
+    const payload = unwrapSocketResponse<{ dataset: any }>(resp);
+    if (!payload || !payload.dataset || !payload.dataset.data) {
+        throw new Error('Invalid dataset response');
+    }
+    const b64 = payload.dataset.data as string;
+    // decode base64 to binary
+    const binaryString = atob(b64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    return { blob, filename: payload.dataset.name || payload.dataset.label || `dataset-${id}` };
+};
+
+export const preprocessDataset = async (id: number) => {
+    const resp = await sendrcv<any>('preprocess', { timeout: 600000 }, id) as RecvParams<any>;
+    const payload = unwrapSocketResponse<{ id: number; status: string; message?: string }>(resp);
+    if (!payload || payload.status !== 'ok') {
+        throw new Error(payload?.message || 'Preprocess failed');
+    }
+    return payload;
+};
+
+export const downloadProcessedData = async (id: number) => {
+    const resp = await sendrcv<any>('get_processed_dataset', { timeout: 600000 }, id) as RecvParams<any>;
+    const payload = unwrapSocketResponse<{ processed: { id: number; name: string; data: string } }>(resp);
+    if (!payload || !payload.processed || !payload.processed.data) {
+        throw new Error('Invalid processed dataset response');
+    }
+    const b64 = payload.processed.data as string;
+    const binaryString = atob(b64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    return { blob, filename: payload.processed.name || `processed_dataset-${id}` };
 };
 
 export const removeDataset = async (id: number) => {
-    console.log(`Removing dataset ${id}`);
-    return Promise.resolve({ status: 'success' });
+    // Backend expects a GET to /api/datasets/remove/<id>
+    const res = await fetch(`/api/datasets/remove/${id}`, {});
+    return res;
 };
+
+export const uploadDataset = async (file: File, label: string, common = false) => {
+    const fd = new FormData();
+    fd.append('label', label);
+    fd.append('dataset', file, file.name);
+    const uri = common ? '/api/datasets/create/common' : '/api/datasets/create';
+    try {
+        // Use the custom fetch helper for POST with FormData
+        const response = await fetch(uri, {}, fd);
+        if (typeof response === 'string') {
+            // Try to parse as JSON, otherwise wrap as error object
+            try {
+                return JSON.parse(response);
+            } catch {
+                return {
+                    meta: { code: 500 },
+                    response: { field_errors: { name: ['Upload failed: Unexpected response from server'] } }
+                };
+            }
+        }
+        return response;
+    } catch (err: any) {
+        throw { code: 500, message: err.message || 'Upload failed' };
+    }
+}
+
+export const updateDataset = async (id: number, label: string | null, datafileLabels: Record<number | string, string>) => {
+    const resp = await sendrcv<any>('update_dataset', {}, id, label, datafileLabels) as RecvParams<any>;
+    const payload = unwrapSocketResponse<any>(resp);
+    if (!payload || payload.status !== 'ok') {
+        throw new Error('Update failed');
+    }
+    return payload;
+};
+
+export const resetProcessing = async(id: number) => {
+    const resp = await sendrcv<any>('reset_processing', {}) as RecvParams<any>;
+    const payload = unwrapSocketResponse<any>(resp);
+    if (!payload || payload.status !== 'ok') {
+        throw new Error('Update failed');
+    }
+    return payload;
+}

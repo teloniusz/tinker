@@ -26,7 +26,7 @@ const MainPage: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
     <Col sm='1'></Col>
     <Col>
 <h4>tINKer</h4>
-<h5>studying historical manuscripts with AI</h5>
+<h5>Studying historical manuscripts with AI</h5>
 <p>
 This web application supports the study of iron-gall inks from strictly
 protected historical manuscripts.
@@ -53,7 +53,7 @@ coupled plasma mass spectrometry (LA-ICP-MS), which provides
 multielemental information on indicator composition (<a href={bibl.WagnerCzajka2021}>Wagner and Czajka,
 2021</a>).
 Subsequent prediction using 
-<a href="https://github.com/BDomzal/inks/tree/main">
+<a target="_blank" href="https://github.com/BDomzal/inks/tree/main">
 <img alt="InksNet logo" src={`${baseUrl}/inksnet.svg`} style={{ width: 20, height: 20, margin: '0 2px 2px 3px' }}/>InksNet</a> enables
 reconstructing information about the composition of the original ink.
 </p>
@@ -63,10 +63,16 @@ prediction of ink composition by InksNet. A user can upload their sample
 data, store it, process and parametrise the data conversion, run the
 predicting algorithm and download the results.
 </p>
+<h5>Citation</h5>
 <p>
-Citation: paper in preparation. Meanwhile, if you are using this tool,
+Paper in preparation. Meanwhile, if you are using this tool,
 please cite it using its URL.
 </p>
+<h5>Acknowledgements</h5>
+<p>This work was supported by the Polish National Science Centre grants: Spectral Analysis of Legacy Inks using machiNe
+leArning: ALiNA (2021/41/B/ST4/02860) and Optimal-transport based algorithms for Mass Spectrometry and NMR (2021/41/B/ST6/03526).</p>
+<p>Funding for access to the Reference Material Collections of the Heritage Science Laboratory at the University of Ljubljana was provided through
+I0-E012 (Slovenian Research and Innovation Agency).</p>
     </Col>
   </Row>;
 }
