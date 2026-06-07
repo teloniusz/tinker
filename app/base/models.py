@@ -39,6 +39,18 @@ class User(db.Model, fsqla.FsUserMixin, QHelper['User']):  # type: ignore
             s=self, roles=[role.name for role in cast(list[Role], self.roles)] # type: ignore
         )
 
+    @property
+    def confirmed_str(self):
+        return "confirmed" if self.confirmed_at else "unconfirmed"
+
+    @property
+    def active_str(self):
+        return "active" if self.is_active else "inactive"
+
+    @property
+    def is_admin(self):
+        return any(role.name == 'admin' for role in self.roles)  # type: ignore
+
     @classmethod
     def get_user(cls, username: str):
         return cls.qry().filter(User.username == username).one_or_none()

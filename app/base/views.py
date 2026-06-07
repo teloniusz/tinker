@@ -83,9 +83,7 @@ def _do_login(username: str, password: str):
 @cli.with_appcontext
 def cli_list_users():
     for user in User.query.order_by(User.id.asc()):
-        confirmed = "confirmed" if user.confirmed_at else "unconfirmed"
-        active = "active" if user.active else "inactive"
-        click.echo(f'{user.id:>3}. {str(user):<80} {confirmed:>11} {active:>8}')
+        click.echo(f'{user.id:>3}. {str(user):<80} {user.confirmed_str:>11} {user.active_str:>8}')
 
 
 @fs.cli.users.command('confirm', short_help='Confirm user')

@@ -1,4 +1,6 @@
-from typing import Any, Generic, TypeVar
+import datetime
+from functools import wraps
+from typing import Any, Callable, Generic, TypeVar
 
 from flask import jsonify, make_response
 from sqlalchemy.orm import Query
@@ -43,7 +45,7 @@ def make_resp_data(data: dict[str, Any], code: int = 200) -> dict[str, dict[str,
     return {'meta': {'code': code}, 'response': data}
 
 
-def make_error_data(error: str | dict[str, list[str] | str], code: int = 400):
+def make_error_data(error: str | dict[str, list[str] | str], code: int = 400) -> dict[str, Any]:
     if isinstance(error, str):
         errdata = {'_': [error]}
     else:
@@ -63,3 +65,18 @@ class QHelper(Generic[_T]):
     @classmethod
     def qry(cls) -> Query[_T]:
         return cls.query # type: ignore
+
+
+def utcnow():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def wrap_errors(fun: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(fun)
+    def decorator(*args: Any, **kwargs: Any):
+        try:
+            ret = fun(*args, **kwargs)
+        except Exception as exc:
+            return make_error(str(exc))
+        return ret
+    return decorator
