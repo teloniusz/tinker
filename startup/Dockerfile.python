@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.7-labs
+
+FROM --platform=$BUILDPLATFORM python:3.12-alpine
+
+ARG USERID=500 ORIGINS="127.0.0.1:13857 localhost:13857"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apk add bash redis libmagic
+RUN adduser -h /code -s /bin/bash -D -u $USERID tinker
+
+VOLUME /code/.venv
+WORKDIR /code
+USER tinker
+
+COPY --chown=tinker env.sh env-docker.sh tools.sh pyproject.toml ./
+
+RUN <<EOS
+./env.sh
+rm -rf .cache
+EOS
+
+COPY --chown=tinker --parents README.md startup/entrypoint.sh startup/supervisord startup/gunicorn.conf.py app cfg migrations ./
+
+RUN <<EOS
+echo "SQLALCHEMY_DATABASE_URI: postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DB}" >> cfg/config_local.yaml
+echo "ORIGINS: $ORIGINS" >> cfg/config_local.yaml
+EOS
+
+CMD ["/code/startup/entrypoint.sh"]

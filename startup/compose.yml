@@ -1,0 +1,65 @@
+name: tinker
+services:
+  database:
+    env_file: compose-dbconfig.env
+    image: postgres:${POSTGRES_VERSION:-18}
+    restart: always
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "tinker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    secrets:
+      - db-password
+    user: ${USERID:-500}:${GROUPID:-500}
+    volumes:
+      - "../data/db:/var/lib/postgresql"
+    networks:
+      - intnet
+  front:
+    build:
+      context: ..
+      dockerfile: startup/Dockerfile.front
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+    depends_on:
+      - python
+    restart: always
+    ports:
+      - "${EXPOSE_PORT:-13857}:80"
+    networks:
+      - intnet
+
+  python:
+    env_file: compose-dbconfig.env
+    build:
+      context: ..
+      dockerfile: startup/Dockerfile.python
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        USERID: ${USERID:-500}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - intnet
+    volumes:
+      - ../data:/code/data
+      - ../cfg/config_prod.yaml:/code/cfg/config_prod.yaml
+    restart: always
+    secrets:
+      - db-password
+
+networks:
+  intnet:
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET:-172.48.11.0/24}
+          gateway: ${DOCKER_GATEWAY:-172.48.11.1}
+
+#volumes:
+#  db-data:
+
+secrets:
+  db-password:
+    file: postgres-pass.txt

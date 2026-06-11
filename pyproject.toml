@@ -1,0 +1,77 @@
+[project]
+name = "tinker"
+description = "tINKer: ink analysis software"
+dynamic = ["version"]
+dependencies = [
+    #"bcrypt",
+    "celery",
+    "flask",
+    "flask-migrate",
+    "flask-cors",
+    "flask-babel",
+    "flask-security-too[fsqla,common]",
+    #"libpass",
+    "flask-session",
+    "flask-socketio",
+    "flask-sqlalchemy",
+    "flask_mailman",
+    "gevent-websocket",
+    "gunicorn",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "psycopg[binary]",
+    "python-magic",
+    "pyyaml",
+    "requests",
+    "redis==5.2.1",
+    "requests",  # for captcha
+
+    "flake8",
+    "flake8-pyproject",
+    "pylint",
+    "ipython",
+    "supervisor"
+]
+
+[tool.pylint.MESSAGE_CONTROL]
+disable = """
+    line-too-long,
+    abstract-method,
+    no-member,
+    import-outside-toplevel,
+"""
+enable = "useless-suppression"
+
+[tool.flake8]
+show-source = true
+max-line-length = 150
+
+import-order-style = 'google'
+
+ignore = [
+    # E226: missing whitespace around arithmetic operator
+    'E226',
+    # E731: do not assign a lambda expression, use a def
+    'E731',
+    # W503, W504: Line break occurred after/before a binary operator
+    'W503',
+    'W504']
+
+enable-extensions = [
+    # Delay string interpolations at logging calls.
+    'H904'
+]
+
+[tool.pylint.REPORTS]
+reports = "no"
+
+[tool.pylint.FORMAT]
+max-line-length = 150
+
+[tool.pylint.BASIC]
+good-names = "_,i,e,setUp,tearDown,maxDiff"
+
+[tool.black]
+line-length = 150
+include = '\.pyi?$'

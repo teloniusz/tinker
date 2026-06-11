@@ -8,3 +8,5 @@ data/
 temp/
 /cfg/config_local.yaml
 typings/
+startup/postgres-pass.txt
+requirements.txt

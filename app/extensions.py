@@ -104,8 +104,8 @@ def init_socketio(app: 'App'):
     origins = app.get_config('ORIGINS', str, '').split()
     urls = [
         f'http://{host}{slash}' for host in (
-            '127.0.0.1:3000', '127.0.0.1:4000', '127.0.0.1:5000',
-            'localhost:3000', 'localhost:4000', 'localhost:5000',
+            '127.0.0.1:3000', '127.0.0.1:8000', '127.0.0.1:5000',
+            'localhost:3000', 'localhost:8000', 'localhost:5000',
             *origins
         ) for slash in ('/', '')
     ] if '*' not in origins else '*'

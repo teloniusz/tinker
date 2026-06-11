@@ -8,6 +8,6 @@ services:
 
   python:
     volumes:
-      - ./app:/code/app
-      - ./data/debug:/code/data
+      - ../app:/code/app
+      - ../data/debug:/code/data
 #      - .venv/lib/python3.11/site-packages:/code/.venv/lib/python3.11/site-packages
