@@ -4,7 +4,7 @@ import { Button, Modal } from 'react-bootstrap';
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppState } from '../AppState';
-import { downloadDataset, removeDataset, getDatasets, getPrefix, preprocessDataset, downloadProcessedData, updateDataset } from '../services';
+import { downloadDataset, removeDataset, getDatasets, getPrefix, preprocessDataset, downloadProcessedData, updateDataset, resetProcessing } from '../services';
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 export const EditDetailsModal: React.FC<{
@@ -213,6 +213,7 @@ export const EditDetailsModal: React.FC<{
 export const PreprocessModal: React.FC<{ show: boolean, onHide: () => void, dataset: any, onRefresh?: (id: number) => Promise<void> }> = ({ show, onHide, dataset, onRefresh }) => {
     const [busy, setBusy] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
+    const [ { isAdmin } ] = useAppState();
 
     useEffect(() => {
         if (!dataset) {
@@ -234,6 +235,23 @@ export const PreprocessModal: React.FC<{ show: boolean, onHide: () => void, data
             setStatusMessage('Preprocess succeeded. Reloaded status.');
         } catch (err: any) {
             setStatusMessage(`Preprocess failed: ${err?.message || err}`);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleResetPreprocess = async () => {
+        if (!dataset) return;
+        setBusy(true);
+        setStatusMessage('Requesting reset...');
+        try {
+            await resetProcessing(dataset.id);
+            if (onRefresh) {
+                await onRefresh(dataset.id);
+            }
+            setStatusMessage('Reset succeeded. Reloaded status.');
+        } catch (err: any) {
+            setStatusMessage(`Reset failed: ${err?.message || err}`);
         } finally {
             setBusy(false);
         }
@@ -280,10 +298,16 @@ export const PreprocessModal: React.FC<{ show: boolean, onHide: () => void, data
                     </Button>
                 )}
                 {dataset && dataset.processed && (
-                    <Button variant='primary' disabled={busy} onClick={handleDownloadProcessed}>
-                        {busy ? 'Downloading...' : 'Download processed data'}
-                    </Button>
-
+                    <>
+                        <Button variant='primary' disabled={busy} onClick={handleDownloadProcessed}>
+                            {busy ? 'Downloading...' : 'Download processed data'}
+                        </Button>
+                        {isAdmin && (
+                            <Button variant='danger' disabled={busy} onClick={handleResetPreprocess}>
+                                {busy ? 'Resetting...' : 'Reset pre-process'}
+                            </Button>
+                        )}
+                    </>
                 )}
                 <Button variant='secondary' onClick={onHide}>Close</Button>
             </Modal.Footer>

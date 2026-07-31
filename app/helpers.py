@@ -1,6 +1,6 @@
 import datetime
 from functools import wraps
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, NotRequired, TypeVar, TypedDict
 
 from flask import jsonify, make_response
 from sqlalchemy.orm import Query
@@ -10,6 +10,36 @@ from . import app
 
 
 _T = TypeVar('_T')
+
+
+class FieldData(TypedDict):
+    field_errors: dict[str, list[str]]
+    errors: list[list[str]]
+
+
+class ErrorType(TypedDict):
+    code: int
+    msg: str
+    field_data: NotRequired[FieldData]
+
+
+class RequestError(Exception):
+    def __init__(self, error: str | dict[str, list[str] | str], code: int = 400):
+        if isinstance(error, str):
+            self.errors = error
+            self.field_errors = None
+        else:
+            self.field_errors = {key: val if isinstance(val, list) else [val] for key, val in error.items()}
+            self.errors = [*self.field_errors.values()]
+        self.code = code
+
+    def to_dict(self) -> ErrorType:
+        if isinstance(self.errors, str):
+            return {'code': self.code, 'msg': self.errors}
+        return {'code': self.code, 'msg': '\n'.join(['\n'.join(errors) for errors in self.errors]), 'field_data': {
+            'field_errors': self.field_errors or {},
+            'errors': self.errors
+        }}
 
 
 def verify_captcha(data: dict[str, Any]):
@@ -50,7 +80,7 @@ def make_error_data(error: str | dict[str, list[str] | str], code: int = 400) ->
         errdata = {'_': [error]}
     else:
         errdata = {key: val if isinstance(val, list) else [val] for key, val in error.items()}
-    return {'field_errors': errdata}
+    return {'field_errors': errdata, 'errors': [*errdata.values()]}
 
 
 def make_resp(data: dict[str, Any], code: int = 200):

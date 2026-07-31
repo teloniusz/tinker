@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy.orm import joinedload
 
 from .. import app, db
-from ..helpers import make_error_data, make_resp_data, wrap_errors
+from ..helpers import RequestError, make_resp_data, wrap_errors
 from ..base.models import current_uid, current_user
 from .models import DataSet
 
@@ -57,8 +57,8 @@ def get_datasets():
 def ws_get_orig_dataset(id: int):
     user = current_user()
     uid = current_uid()
-    sec_filter: dict[str, Any] = {} if user and user.is_admin else {'user_id': uid}
-    dataset = db.query(DataSet).filter_by(id=id, **sec_filter).one()
+    sec_filter = () if user and user.is_admin else (db.func.coalesce(DataSet.user_id, 0).in_((uid, 0)),)
+    dataset = db.query(DataSet).filter(DataSet.id == id, *sec_filter).one()
     with dataset.fileobj() as fobj:
         data = fobj.read()
     return make_resp_data({
@@ -134,7 +134,7 @@ def ws_preprocess(id: int):
     try:
         db.query(DataSet).filter_by(id=id, **sec_filter).one()
     except sqlalchemy.exc.NoResultFound:
-        raise Exception(make_error_data("No preprocess allowed for this user"))
+        raise RequestError("No preprocess allowed for this user")
 
     def run_preprocess(client_sid: str) -> dict[str, Any]:
         try:
@@ -156,8 +156,8 @@ def ws_preprocess(id: int):
 def ws_get_processed_dataset(id: int):
     user = current_user()
     uid = current_uid()
-    sec_filter: dict[str, Any] = {} if user and user.is_admin else {'user_id': uid}
-    dataset = db.query(DataSet).filter_by(id=id, **sec_filter).one()
+    sec_filter = () if user and user.is_admin else (db.func.coalesce(DataSet.user_id, 0).in_((uid, 0)),)
+    dataset = db.query(DataSet).filter(DataSet.id == id, *sec_filter).one()
     if not dataset.is_processed:
         raise NotFound
     with open(dataset.processedfilepath, 'rb') as fobj:

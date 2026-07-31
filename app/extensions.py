@@ -10,7 +10,7 @@ from flask_migrate import Migrate
 from flask_security.core import Security
 from flask_security.datastore import SQLAlchemyUserDatastore
 from flask_session import Session
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room # pyright: ignore[reportUnknownVariableType]
 from flask_sqlalchemy import SQLAlchemy
 
 if TYPE_CHECKING:
@@ -43,6 +43,7 @@ def init_cors(app: 'App'):
 class MQConf(TypedDict):
     message_queue_url: NotRequired[str]
 
+_UNIQ = object()
 
 def init_socketio(app: 'App'):
     class SocketOps:
@@ -54,14 +55,24 @@ def init_socketio(app: 'App'):
                 return f'Call error: {self.msg}'
 
         def __init__(self, io: SocketIO):
+            self.client_id = ''
+
+            def get_client_id():
+                client_id: str | None = request.args.get('clientId')
+                if client_id:
+                    app.logger.info('WS client connected: %s', client_id)
+                    self.client_id = client_id
+                    join_room(client_id)
+
+            io.on('connect')(get_client_id)
             self.io = io
             self.tp = ThreadPoolExecutor(max_workers=2)
 
-        def run(self, app, host=None, port=None, **kwargs):
-            self.io.run(app, host, port, **kwargs)
+        def run(self, app: 'App', host: str | None = None, port: int | None = None, **kwargs: Any):
+            self.io.run(app, host, port, **kwargs)  # pyright:ignore[reportUnknownMemberType]
 
         def emit(self, msg: str, *args: Any, **kwargs: Any) -> None:
-            return self.io.emit(msg, *args, **kwargs) # type: ignore
+            return self.io.emit(msg, *args, **kwargs) # pyright:ignore[reportUnknownMemberType]
 
         def on(self, message: str, namespace: str | None = None):
             return self.io.on(message, namespace)
@@ -70,34 +81,62 @@ def init_socketio(app: 'App'):
             return self.io.start_background_task(target, *args, **kwargs)
 
         def onmsg(self, message: str, namespace: str | None = None):
+            from .helpers import RequestError
+
             decorator = self.on(message, namespace)
             return_msg = f'{message}_response'
-            complete_msg = f'{message}_complete'
             def my_decorator(func: Callable[..., Any]):
                 @wraps(func)
-                def wrapped(*args: Any, **kwargs: Any):
+                def wrapped(kw_args: dict[str, Any]):
+                    app.logger.debug('WS call [%s]: %r', message, kw_args)
+                    req_id = kw_args.pop('reqId', None)
+                    data = kw_args.pop('data', _UNIQ)
+                    if data is None:
+                        args, kwargs = (), {}
+                    elif data is _UNIQ:
+                        args, kwargs = (), kw_args
+                    elif isinstance(data, (list, tuple)):
+                        items: tuple[Any, ...] | list[Any] = data  # pyright: ignore[reportUnknownVariableType]
+                        args, kwargs = items, {}
+                    else:
+                        args, kwargs = (), data
                     try:
                         resp = func(*args, **kwargs)
+                    except RequestError as err:
+                        app.logger.warning('WS call [%s] (%r): finished with error: %s', message, kw_args, str(err))
+                        self.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': err.to_dict() })
                     except Exception as exc:
-                        self.emit(return_msg, ['error', str(exc)])
+                        app.logger.warning('WS call [%s] (%r): finished with error: %s', message, kw_args, str(exc))
+                        self.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': { 'code': 900, 'msg': str(exc) } })
                     else:
                         if callable(resp):
-                            sid = getattr(request, 'sid', None)
+                            sid = self.client_id or getattr(request, 'sid', None)
                             if not sid:
-                                self.emit(return_msg, ['error', 'Unable to determine websocket client session'])
+                                app.logger.warning('WS long task: Unable to determine websocket client session')
+                                self.emit(return_msg,
+                                          { 'reqId': req_id, 'status': 'error', 'error': 'Unable to determine websocket client session' })
                                 return None
 
                             def task():
                                 with app.app_context():
+                                    app.logger.info('WS long task [%s] [%s]: start', message, sid)
                                     try:
                                         result = resp(sid)
+                                    except RequestError as err:
+                                        app.logger.warning('WS long task [%s] [%s]: finished with error: %s', message, sid, str(err))
+                                        self.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': err.to_dict() }, room=sid)
                                     except Exception as exc:
-                                        self.emit(complete_msg, ['error', str(exc)], room=sid)
+                                        app.logger.warning('WS long task [%s] [%s]: finished with error: %s', message, sid, str(exc))
+                                        self.emit(return_msg,
+                                                  { 'reqId': req_id, 'status': 'error', 'error': { 'code': 901, 'msg' : str(exc) } }, room=sid)
                                     else:
-                                        self.emit(complete_msg, ['success', result], room=sid)
+                                        app.logger.info('WS long task [%s] [%s]: succeeded', message, sid)
+                                        app.logger.debug('WS long task [%s] [%s] return: %r', message, sid, result)
+                                        self.emit(return_msg, { 'reqId': req_id, 'status': 'success', 'data': result }, room=sid)
                             self.tp.submit(task)
                             return None
-                        self.emit(return_msg, ['success', resp])
+                        app.logger.debug('WS call [%s] return: %r', message, resp)
+                        self.emit(return_msg, { 'reqId': req_id, 'status': 'success', 'data': resp })
                 return decorator(wrapped)
             return my_decorator
 

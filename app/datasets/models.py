@@ -232,13 +232,13 @@ class DataSet(db.Model):  # type: ignore
             os.unlink(self.processedfilepath)
 
     def preprocess(self):
-        app.logger.info("Preprocessing: %s", self)
+        app.logger.info("Sending dataset to preprocess: %s", self)
         df = preprocessing.preprocess(
             (file.filepath for file in self.files),
             defaults.ELEMENTS_DICT
         )
         df.to_csv(self.processedfilepath, index=False)
-        app.logger.info("Preprocessing finished: %s", self)
+        app.logger.info("Dataset preprocessed: %s", self)
 
     @cached_property
     def stat(self):

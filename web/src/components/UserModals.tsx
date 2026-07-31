@@ -6,7 +6,7 @@ import { UserDialogType, UserInfo } from '../models/user'
 import { AlertData } from '../AppState'
 import { getUserInfo, logIn, register, reset, sendReset, updateUser } from '../services'
 import { useLocation } from 'react-router-dom'
-import { is_success } from '../models/network'
+import { flaskSuccess, recvSuccess, stringifyError } from '../models/network'
 import { FormItem } from './FormItem'
 import { useCaptcha } from '../hooks/useCaptcha'
 
@@ -20,16 +20,16 @@ export const UserModal: React.FC<{
 }> = ({ showLogin, setShowLogin, userInfo, setUserInfo, doAlert }) => {
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const doLogIn = useCallback(async (user: string, password: string) => {
-    const [status, res] = await logIn(user, password);
-    if (status === 'error') {
-      doAlert({ type: 'warning', text: `Login error: ${res}` });
+    const res = await logIn(user, password);
+    if (!recvSuccess(res)) {
+      doAlert({ type: 'warning', text: `Login error: ${stringifyError(res.error)}` });
       setShowLogin(false);
     } else {
       doAlert({ type: 'success', text: 'Logged in successfully' });
-      const [status, res] = await getUserInfo();
-      if (status === 'success') {
-        setUserInfo(res.user);
-        setShowLogin(!res.user.first_name || !res.user.last_name ? 'editProfile' : false);
+      const result = await getUserInfo();
+      if (recvSuccess(result)) {
+        setUserInfo(result.data.user);
+        setShowLogin(!result.data.user.first_name || !result.data.user.last_name ? 'editProfile' : false);
       }
     }
   }, [doAlert, setShowLogin, setUserInfo]);
@@ -37,7 +37,7 @@ export const UserModal: React.FC<{
   const doRegister = useCallback(async (username: string, email: string, password: string, captchaToken: string) => {
     const res = await register({ username, email, password, token: captchaToken });
     console.log('register:', res)
-    if (is_success(res)) {
+    if (flaskSuccess(res)) {
       doAlert({ type: 'success', text: 'Register request sent. Please wait for a confirmation email.'});
       setShowLogin(false);
     } else {
@@ -48,7 +48,7 @@ export const UserModal: React.FC<{
 
   const doSendReset = useCallback(async (email: string, captchaToken: string) => {
     const res = await sendReset({ email, token: captchaToken });
-    if (is_success(res)) {
+    if (flaskSuccess(res)) {
       doAlert({ type: 'success', text: 'Reset password request sent. Please wait for an email with a link to the password reset form.'});
       setShowLogin(false);
     } else {
@@ -69,12 +69,12 @@ export const UserModal: React.FC<{
   ) => {
     const res = await updateUser({ first_name, last_name, password, email, token: captchaToken });
     console.log('update_user:', res)
-    if (is_success(res)) {
+    if (flaskSuccess(res)) {
       doAlert({ type: 'success', text: 'User profile updated.'});
       setShowLogin(false);
-      const [status, res] = await getUserInfo();
-      if (status === 'success') {
-        setUserInfo(res.user);
+      const result = await getUserInfo();
+      if (recvSuccess(result)) {
+        setUserInfo(result.data.user);
       }
     } else {
       doAlert({ type: 'warning', text: 'Error in the user profile form.'});

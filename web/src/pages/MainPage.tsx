@@ -3,15 +3,12 @@ import { VersionResponse } from '../models/version'
 import { getVersion } from '../services'
 import { VersionBox } from '../components/VersionBox'
 import { Col, Row } from 'react-bootstrap'
+import { recvSuccess } from '../models/network'
 
 const MainPage: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
   const [version, setVersion] = useState<VersionResponse>({ message: 'nothing yet' })
 
-  const doGetVersion = useCallback(async () => {
-    const [status, response] = await getVersion<VersionResponse>();
-    if (status === 'success')
-      setVersion(response);
-  }, [setVersion])
+  const doGetVersion = useCallback(async () => getVersion().then(res => recvSuccess(res) && (console.log(res) === undefined) && setVersion(res.data)), [setVersion])
 
   const bibl = {
     "NeevelReissland2005": "https://www.tandfonline.com/doi/abs/10.1080/15632628.2005.12461825",
@@ -53,7 +50,7 @@ coupled plasma mass spectrometry (LA-ICP-MS), which provides
 multielemental information on indicator composition (<a href={bibl.WagnerCzajka2021}>Wagner and Czajka,
 2021</a>).
 Subsequent prediction using 
-<a target="_blank" href="https://github.com/BDomzal/inks/tree/main">
+<a target="_blank" rel="noreferrer" href="https://github.com/BDomzal/inks/tree/main">
 <img alt="InksNet logo" src={`${baseUrl}/inksnet.svg`} style={{ width: 20, height: 20, margin: '0 2px 2px 3px' }}/>InksNet</a> enables
 reconstructing information about the composition of the original ink.
 </p>

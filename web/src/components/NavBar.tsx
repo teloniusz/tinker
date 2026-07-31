@@ -10,6 +10,7 @@ import { TTip } from '../components/Tooltip'
 import { NavLink } from 'react-router-dom'
 import Container from 'react-bootstrap/Container'
 import "bootstrap-icons/font/bootstrap-icons.css"
+import { recvSuccess } from '../models/network'
 
 
 export const NavbarSection: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
@@ -57,13 +58,9 @@ export const NavbarSection: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
       });
     }
     getUserInfo()
-      .then(([status, res]) => {
-        if (status === 'success') {
-          setUserInfo(res.user)
-        } else {
-          setUserInfo({ id: 0, first_name: '', last_name: '' })
-        }
-      })
+      .then(result => setUserInfo(
+        recvSuccess(result) ? result.data.user : { id: 0, first_name: '', last_name: '' }
+      ))
       .catch(() => setUserInfo({ id: 0, first_name: '', last_name: '' }))
 
     return () => {
@@ -74,12 +71,12 @@ export const NavbarSection: React.FC<{ baseUrl: string }> = ({ baseUrl }) => {
 
   const doLogOut = useCallback(async () => {
     await logOut();
-    const [status, res] = await getUserInfo();
-    if (status === 'success') {
-      setUserInfo(res.user);
+    const result = await getUserInfo();
+    if (recvSuccess(result)) {
+      setUserInfo(result.data.user);
       doAlert({ type: 'success', text: 'Logged out successfully' });
     } else {
-      doAlert({ type: 'warning', text: `Error trying to update user info: ${res}`})
+      doAlert({ type: 'warning', text: `Error trying to update user info: ${result.error}`})
     }
     navigate('/')
   }, [setUserInfo, doAlert, navigate])

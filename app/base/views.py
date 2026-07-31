@@ -146,18 +146,13 @@ def logout():
     return ['success', 'No user logged']
 
 
-@app.sio.on('connect')
-def on_connect():
-    app.logger.info('WebSocket connected')
-
-
 @app.sio.onmsg('hello')
-def ws_hello(msg: dict[str, Any]):
+def ws_hello(msg: Any):
     version = Versions.last_version()
     if not version:
-        ret = {'message': f'Hello, world, {msg["data"]}'}
+        ret = {'message': f'Hello, world, {msg}'}
     else:
-        ret = {'message': f'Hello, world, you sent: {msg["data"]!r}',
+        ret = {'message': f'Hello, world, you sent: {msg!r}',
                'version': version.version, 'modified': version.modified.strftime('%F %T')}
     ret['message'] += f', you are: {current_user()}'
     return ret
