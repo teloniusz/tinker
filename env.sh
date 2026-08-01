@@ -109,8 +109,8 @@ export PATH=\$PATH:~/.venv/bin
 pkill -F var/run/gunicorn.pid || true
 sleep 1
 [[ \$ENV_UPDATE ]] && ./ctl env update
-sed -ri "/^(daemon|accesslog|errorlog) =/s/^/\# /" gunicorn.conf.py
-gunicorn --log-level info
+sed -ri "/^(daemon|accesslog|errorlog) =/s/^/\# /" startup/gunicorn.conf.py
+./env.sh gunicorn --log-level info
 echo "ok!"
 bash
 EOS

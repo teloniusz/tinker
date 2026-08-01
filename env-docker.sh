@@ -15,7 +15,7 @@ export USERID=${USERID:-$(id -u)} GROUPID=${GROUPID:-$(id -g)}
 
 ::compose_dev() {
     : "Wrapper for the dev compose"
-    ::compose -f "$docker_dir/compose-dev.yml" "$@"
+    ::compose -f "$docker_dir/compose.dev.yml" "$@"
 }
 
 ::cstart() {
