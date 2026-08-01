@@ -142,7 +142,7 @@ def init_socketio(app: 'App'):
 
     origins = app.get_config('ORIGINS', str, '').split()
     urls = [
-        f'http://{host}{slash}' for host in (
+        f'http://{host}{slash}' if host.partition(':')[0] not in ('http', 'https') else host + slash for host in (
             '127.0.0.1:3000', '127.0.0.1:8000', '127.0.0.1:5000',
             'localhost:3000', 'localhost:8000', 'localhost:5000',
             *origins
