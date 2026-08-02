@@ -167,6 +167,7 @@ def ws_get_processed_dataset(id: int):
         "processed": {"id": dataset.id, "name": dataset.filename.partition('.')[0] + '-processed.csv', "data": b64encode(data).decode()}
     })
 
+
 @app.sio.onmsg('reset_processing')
 def ws_reset_processing(id: int):
     user = current_user()

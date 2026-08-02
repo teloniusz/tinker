@@ -19,3 +19,24 @@ ELEMENTS_DICT: dict[str, float] = {
      "Hg202": 29.86,
      "Pb208": 52.4
 }
+
+# elements to keep in prediction, including multiplication weights
+KEPT_ELEMENTS_WEIGHTS: dict[str, float] = {
+     "Al": 1,
+     "S": 1,
+     "Mn": 10,
+     "Co": 19,
+     "Cu": 20,
+     "Zn": 17,
+     "Pb": 9,
+     "Fe": 20,
+     "Mg": 1,
+     "Na": 1,
+     "K": 1
+}
+
+PREPROCESSING_METHOD: str = 'logarithm'
+
+NORMALISATION_TO_FE: bool = False
+
+DROPOUT_PROB: float = 0.08145514656707054

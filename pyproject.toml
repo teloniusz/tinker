@@ -26,6 +26,9 @@ dependencies = [
     "requests",
     "redis==5.2.1",
     "requests",  # for captcha
+    "scikit-learn",
+    "seaborn",
+    "torch",
 
     "flake8",
     "flake8-pyproject",

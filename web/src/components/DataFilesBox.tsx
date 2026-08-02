@@ -91,13 +91,13 @@ export const DataSetsTable: React.FC<{ reloadKey?: number }> = ({ reloadKey }) =
                 return (
                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center', height: '100%', fontSize: '1.2rem' }}>
                        <i className="bi bi-pencil-square" style={{ cursor: 'pointer', color: '#0d6efd' }} title="Edit/Details" onClick={() => { setSelectedDataset(row); setShowEdit(true); }}></i>
-                       <i className="bi bi-download" style={{ cursor: 'pointer', color: '#198754' }} title="Download" onClick={() => handleDownload(row.id)}></i>
+                       <i className="bi bi-download" style={{ cursor: 'pointer', color: '#198754' }} title="Download original data" onClick={() => handleDownload(row.id)}></i>
                        {!((row.user_id === 0 || row.user_id === null) && !isAdmin) && (
                            <i className="bi bi-trash" style={{ cursor: 'pointer', color: '#dc3545' }} title="Remove" onClick={() => { setSelectedDataset(row); setShowRemove(true); }}></i>
                        )}
                        <i className="bi bi-gear" style={{ cursor: 'pointer', color: '#6c757d' }} title="Preprocess" onClick={() => { setSelectedDataset(row); setShowPreprocess(true); }}></i>
                        {row.processed && (
-                           <img alt="InksNet logo" src={prefix + '/inksnet.svg'} style={{ cursor: 'pointer', width: 24, height: 24 }} title="InksNet prediction" onClick={() => navigate(`/inksnet/${row.id}`)} />
+                           <img alt="InksNet logo" src={prefix + '/inksnet.svg'} style={{ cursor: 'pointer', width: 24, height: 24, marginBottom: '4px' }} title="InksNet prediction" onClick={() => navigate(`/inksnet/${row.id}`)} />
                        )}
                    </div>
                 );
