@@ -4,8 +4,12 @@ in https://github.com/BDomzal/inks/blob/main/src/data_utils.py module created by
 """
 from typing import Any
 
+import os
 import numpy as np
 import pandas as pd
+import matplotlib
+if not os.environ.get('DISPLAY'):
+    matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap, LogNorm
 from matplotlib.lines import Line2D
