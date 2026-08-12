@@ -153,7 +153,9 @@ def ws_hello(msg: Any):
         ret = {'message': f'Hello, world, {msg}'}
     else:
         ret = {'message': f'Hello, world, you sent: {msg!r}',
-               'version': version.version, 'modified': version.modified.strftime('%F %T')}
+               'version': version.version,
+               'created': version.created.strftime('%F %T'),
+               'modified': version.modified.strftime('%F %T')}
     ret['message'] += f', you are: {current_user()}'
     return ret
 

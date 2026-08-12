@@ -12,8 +12,7 @@ export const VersionBox: React.FC<VersionBoxProps> = ({ version, fetchVersion })
   }, [fetchVersion])
   const showVer = version.version ? (
     <>
-      <h5>Version: {version.version}</h5>
-      <h5>Last modified: {version.modified?.toString()}</h5>
+      <h5>Version: {version.version} ({version.created ? new Date(Date.parse(version.created)).toDateString() : ''})</h5>
     </>
   ) : (
     <div></div>

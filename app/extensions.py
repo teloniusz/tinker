@@ -98,8 +98,11 @@ def init_socketio(app: 'App'):
                     elif isinstance(data, (list, tuple)):
                         items: tuple[Any, ...] | list[Any] = data  # pyright: ignore[reportUnknownVariableType]
                         args, kwargs = items, {}
+                    elif isinstance(data, dict):
+                        kwitems: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]
+                        args, kwargs = (), kwitems
                     else:
-                        args, kwargs = (), data
+                        args, kwargs = (data,), {}
                     try:
                         resp = func(*args, **kwargs)
                     except RequestError as err:
