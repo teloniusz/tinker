@@ -3,14 +3,12 @@ name = "tinker"
 description = "tINKer: ink analysis software"
 dynamic = ["version"]
 dependencies = [
-    #"bcrypt",
     "celery",
     "flask",
     "flask-migrate",
     "flask-cors",
     "flask-babel",
     "flask-security-too[fsqla,common]",
-    #"libpass",
     "flask-session",
     "flask-socketio",
     "flask-sqlalchemy",

@@ -42,6 +42,59 @@ class RequestError(Exception):
         }}
 
 
+_UNIQ = object()
+
+
+def run_short_task(message: str, return_msg: str, kw_args: dict[str, Any], func: Callable[..., Any]):
+    app.logger.debug('WS call [%s]: %r', message, kw_args)
+    req_id = kw_args.pop('reqId', '')
+    data = kw_args.pop('data', _UNIQ)
+    if data is None:
+        args, kwargs = (), {}
+    elif data is _UNIQ:
+        args, kwargs = (), kw_args
+    elif isinstance(data, (list, tuple)):
+        items: tuple[Any, ...] | list[Any] = data  # pyright: ignore[reportUnknownVariableType]
+        args, kwargs = items, {}
+    elif isinstance(data, dict):
+        kwitems: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]
+        args, kwargs = (), kwitems
+    else:
+        args, kwargs = (data,), {}
+    try:
+        resp = func(*args, **kwargs)
+    except RequestError as err:
+        app.logger.warning('WS call [%s] (%r): finished with error: %s', message, kw_args, str(err), exc_info=True)
+        app.sio.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': err.to_dict() })
+        return None, None
+    except Exception as exc:
+        app.logger.warning('WS call [%s] (%r): finished with error: %s', message, kw_args, str(exc), exc_info=True)
+        app.sio.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': { 'code': 900, 'msg': str(exc) } })
+        return None, None
+    return resp, req_id
+
+
+def run_long_task(message: str, return_msg: str, req_id: str, sid: str, resp: Callable[[str], Any]):
+    with app.app_context():
+        app.logger.info('WS long task [%s] [%s]: start', message, sid)
+        try:
+            result = resp(sid)
+        except RequestError as err:
+            app.logger.warning('WS long task [%s] [%s]: finished with error: %s', message, sid, str(err))
+            app.sio.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': err.to_dict() }, room=sid)
+        except Exception as exc:
+            app.logger.warning('WS long task [%s] [%s]: finished with error: %s', message, sid, str(exc))
+            app.sio.emit(return_msg,
+                        { 'reqId': req_id, 'status': 'error', 'error': { 'code': 901, 'msg' : str(exc) } }, room=sid)
+        else:
+            app.logger.info('WS long task [%s] [%s]: succeeded', message, sid)
+            app.logger.debug('WS long task [%s] [%s] return: %r', message, sid, result)
+            try:
+                app.sio.emit(return_msg, { 'reqId': req_id, 'status': 'success', 'data': result }, room=sid)
+            except Exception as exc:
+                app.logger.error('WS long task [%s] [%s]: emit failed: %s', message, sid, exc, exc_info=True)
+
+
 def verify_captcha(data: dict[str, Any]):
     token = str(data.get('token') or '')
     error = ''

@@ -81,65 +81,29 @@ def init_socketio(app: 'App'):
             return self.io.start_background_task(target, *args, **kwargs)
 
         def onmsg(self, message: str, namespace: str | None = None):
-            from .helpers import RequestError
+            from .helpers import run_short_task, run_long_task
 
             decorator = self.on(message, namespace)
             return_msg = f'{message}_response'
             def my_decorator(func: Callable[..., Any]):
                 @wraps(func)
                 def wrapped(kw_args: dict[str, Any]):
-                    app.logger.debug('WS call [%s]: %r', message, kw_args)
-                    req_id = kw_args.pop('reqId', None)
-                    data = kw_args.pop('data', _UNIQ)
-                    if data is None:
-                        args, kwargs = (), {}
-                    elif data is _UNIQ:
-                        args, kwargs = (), kw_args
-                    elif isinstance(data, (list, tuple)):
-                        items: tuple[Any, ...] | list[Any] = data  # pyright: ignore[reportUnknownVariableType]
-                        args, kwargs = items, {}
-                    elif isinstance(data, dict):
-                        kwitems: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]
-                        args, kwargs = (), kwitems
-                    else:
-                        args, kwargs = (data,), {}
-                    try:
-                        resp = func(*args, **kwargs)
-                    except RequestError as err:
-                        app.logger.warning('WS call [%s] (%r): finished with error: %s', message, kw_args, str(err))
-                        self.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': err.to_dict() })
-                    except Exception as exc:
-                        app.logger.warning('WS call [%s] (%r): finished with error: %s', message, kw_args, str(exc))
-                        self.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': { 'code': 900, 'msg': str(exc) } })
-                    else:
-                        if callable(resp):
-                            sid = self.client_id or getattr(request, 'sid', None)
-                            if not sid:
-                                app.logger.warning('WS long task: Unable to determine websocket client session')
-                                self.emit(return_msg,
-                                          { 'reqId': req_id, 'status': 'error', 'error': 'Unable to determine websocket client session' })
-                                return None
-
-                            def task():
-                                with app.app_context():
-                                    app.logger.info('WS long task [%s] [%s]: start', message, sid)
-                                    try:
-                                        result = resp(sid)
-                                    except RequestError as err:
-                                        app.logger.warning('WS long task [%s] [%s]: finished with error: %s', message, sid, str(err))
-                                        self.emit(return_msg, { 'reqId': req_id, 'status': 'error', 'error': err.to_dict() }, room=sid)
-                                    except Exception as exc:
-                                        app.logger.warning('WS long task [%s] [%s]: finished with error: %s', message, sid, str(exc))
-                                        self.emit(return_msg,
-                                                  { 'reqId': req_id, 'status': 'error', 'error': { 'code': 901, 'msg' : str(exc) } }, room=sid)
-                                    else:
-                                        app.logger.info('WS long task [%s] [%s]: succeeded', message, sid)
-                                        app.logger.debug('WS long task [%s] [%s] return: %r', message, sid, result)
-                                        self.emit(return_msg, { 'reqId': req_id, 'status': 'success', 'data': result }, room=sid)
-                            self.tp.submit(task)
+                    resp, req_id = run_short_task(message, return_msg, kw_args, func)
+                    if req_id is None:   # only when exception was thrown
+                        return
+                    if callable(resp):   # this was actually a long task
+                        sid = self.client_id or getattr(request, 'sid', None)
+                        if not sid:
+                            app.logger.warning('WS long task: Unable to determine websocket client session')
+                            self.emit(return_msg,
+                                        { 'reqId': req_id, 'status': 'error', 'error': 'Unable to determine websocket client session' })
                             return None
-                        app.logger.debug('WS call [%s] return: %r', message, resp)
-                        self.emit(return_msg, { 'reqId': req_id, 'status': 'success', 'data': resp })
+                        future = self.tp.submit(run_long_task, message, return_msg, req_id, sid, resp)
+                        future.add_done_callback(lambda f: f.exception() and app.logger.error(
+                            'WS long task [%s] [%s]: unhandled exception: %r', message, sid, f.exception()))
+                        return None
+                    app.logger.debug('WS call [%s] return: %r', message, resp)
+                    self.emit(return_msg, { 'reqId': req_id, 'status': 'success', 'data': resp })
                 return decorator(wrapped)
             return my_decorator
 
