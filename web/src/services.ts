@@ -294,3 +294,8 @@ export const resetProcessing = async(id: number) => {
         throw new Error(`Reset failed: ${resp.response?.error}`)
     return resp.response
 }
+
+export const runPrediction = async(id: number) => {
+    const resp = await sendrcv<{ id: string, label: string, prediction: { [elem: string]: number[] }, figs: { [name: string]: string } }>('prediction', {}, { id })
+    return resp
+}
