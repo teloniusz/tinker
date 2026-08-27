@@ -2,6 +2,7 @@
 This module is a refactored and trimmed copy of the visualisation part of the implementation found
 in https://github.com/BDomzal/inks/blob/main/src/data_utils.py module created by Barbara Domżał.
 """
+from pathlib import Path
 from typing import Any
 
 import os
@@ -23,8 +24,9 @@ def visualise_pca(X_low_dim: NDArray[Any], y: pd.Series | pd.Index,
                     cmap: Colormap = plt.get_cmap('tab20'),
                     annotate: bool = False,
                     whether_sort: bool = True,
-                    figures_path: str | None = None):
+                    figures_path: Path | None = None):
 
+    fig, ax = plt.subplots()
     colors = cmap(np.linspace(0, 0.99, y.nunique()))
 
     if whether_sort:
@@ -41,18 +43,18 @@ def visualise_pca(X_low_dim: NDArray[Any], y: pd.Series | pd.Index,
     x_pca_1 = [X_low_dim[i, dimensions[1]] for i in range(X_low_dim.shape[0])]
     y_colors = np.array([color_dict[el] for el in y])
 
-    plt.xlabel('PC' + str(dimensions[0]+1))
-    plt.ylabel('PC' + str(dimensions[1]+1))
+    ax.set_xlabel('PC' + str(dimensions[0]+1))
+    ax.set_ylabel('PC' + str(dimensions[1]+1))
 
-    plt.scatter(x_pca_0, x_pca_1, marker='o', s=100, color=y_colors)
-    plt.legend(handles=legend_elements, prop={'size': 8})
+    ax.scatter(x_pca_0, x_pca_1, marker='o', s=100, color=y_colors)
+    ax.legend(handles=legend_elements, prop={'size': 8})
 
     if figures_path is not None:
-        dest_path = figures_path + '_' + figures_name + '_' + 'PC' + str(dimensions[0]+1) + '_' + 'PC' + str(dimensions[1]+1) + '.png'
-        plt.savefig(dest_path)
+        dest_path = figures_path / (figures_name + '_' + 'PC' + str(dimensions[0]+1) + '_' + 'PC' + str(dimensions[1]+1) + '.png')
+        fig.savefig(dest_path)
     else:
         dest_path = None
-    plt.show()
+    plt.close(fig)
     return dest_path
 
 
@@ -60,7 +62,7 @@ def visualise_means_pca(data: NDArray[Any], y: pd.Series | pd.Index,
                         figures_name: str = 'pca_means',
                         cmap: Colormap = plt.get_cmap('tab20'),
                         annotate: bool = False,
-                        figures_path: str | None = None):
+                        figures_path: Path | None = None):
 
     df = pd.DataFrame(data)
     df['Sample_id'] = y.values
@@ -73,7 +75,7 @@ def visualise_clustering_on_heatmap(
         elements_to_keep: list[str], colormap: Colormap = plt.get_cmap('tab20'), figsize: tuple[int, int] = (6,5),
         cbar_pos: tuple[float, float, float, float] | None = None, dendrogram_ratio: float = 0.1,
         show_classes_names: bool = False, show_legend: bool = False, row_cluster: bool = True,
-        col_cluster: bool = True, figures_path: str | None = None):
+        col_cluster: bool = True, figures_path: Path | None = None):
     y_true = pd.Series(y)
     y_true = y_true.rename('          ')
 
@@ -133,7 +135,7 @@ def visualise_clustering_on_heatmap(
             plt.Line2D([0,0], [0,0], color=color, marker='o', markersize=12, linestyle='')
             for color in color_dict.values()
         ]
-        plt.legend(markers, color_dict.keys(), numpoints=1)
+        cg.figure.legend(markers, color_dict.keys(), numpoints=1)
 
     if show_classes_names:
         ax.set_yticks(tick_pos)
@@ -143,9 +145,9 @@ def visualise_clustering_on_heatmap(
         ax.set_yticklabels([])
 
     if figures_path is not None:
-        dest_path = figures_path + 'clustering_heatmap.png'
-        plt.savefig(dest_path, dpi=400)
+        dest_path = figures_path / 'clustering_heatmap.png'
+        cg.savefig(dest_path, dpi=400)
     else:
         dest_path = None
-    plt.show()
+    plt.close(cg.figure)
     return dest_path

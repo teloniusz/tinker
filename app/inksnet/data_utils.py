@@ -17,7 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 def create_sample_id_in_target_data(inds_df: pd.DataFrame, column_to_use: str = 'name'):
-    assert column_to_use in inds_df.columns
+    if column_to_use not in inds_df.columns:
+        if 'Sample_id' in inds_df.columns:
+            inds_df[column_to_use] = [f'{sid}_{no}' for no, sid in enumerate(inds_df['Sample_id'])]
+        else:
+            raise ValueError(f'Column {column_to_use} not found in the data: {inds_df.columns}')
 
     def create_sample_id(x: str):
         return ''.join(x.split('_', 2)[0:-1]) if '_' in x else x

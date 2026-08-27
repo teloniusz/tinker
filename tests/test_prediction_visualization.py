@@ -37,6 +37,7 @@ class PredictionVisualizationTest(unittest.TestCase):
             output_path = visualiser.show_clustering_heatmap(tmp_path)
 
             self.assertIsNotNone(output_path)
+            assert output_path
             self.assertTrue(Path(output_path).exists())
 
 

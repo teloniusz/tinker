@@ -3,7 +3,7 @@ from datetime import timezone
 import os
 from pathlib import Path
 import tempfile
-from flask import request
+from flask import request, send_from_directory
 
 from typing import Any
 import pandas as pd
@@ -113,9 +113,9 @@ def remove_dataset(id: int):
 def ws_prediction(id: int):
     user = current_user()
     uid = current_uid()
-    sec_filter: dict[str, Any] = {} if user and user.is_admin else {'user_id': uid}
+    sec_filter = () if user and user.is_admin else (db.func.coalesce(DataSet.user_id, 0).in_((uid, 0)),)
     try:
-        db.query(DataSet).filter_by(id=id, **sec_filter).one()
+        db.query(DataSet).filter(DataSet.id == id, *sec_filter).one()
     except sqlalchemy.exc.NoResultFound:
         raise RequestError("No prediction allowed for this user")
 
@@ -132,42 +132,50 @@ def ws_prediction(id: int):
             preprocessed_df = pd.read_csv(dataset.processedfilepath, header=0)
             prediction_values = prediction.get_prediction(preprocessed_df, str(model_dir))
 
-            visualisation_input = preprocessed_df.select_dtypes(include='number')
+            #visualisation_input = prediction_values.select_dtypes(include='number')
             visualiser = prediction.PredictionVisualizer(
-                visualisation_input,
+                prediction_values, #visualisation_input,
                 preprocessed_df,
                 str(figures_dir),
             )
 
-            pca_path = visualiser.show_pca(str(figures_dir))
-            means_pca_path = visualiser.show_means_pca(str(figures_dir))
-            heatmap_path = visualiser.show_clustering_heatmap(str(figures_dir))
+            pca_path = visualiser.show_pca(figures_dir)
+            means_pca_path = visualiser.show_means_pca(figures_dir)
+            heatmap_path = visualiser.show_clustering_heatmap(figures_dir)
 
-            def encode_visualisation(path: str | None) -> dict[str, Any] | None:
+            def check_path(path: Path | None) -> str | None:
                 if not path:
                     return None
-                with open(path, 'rb') as fobj:
-                    encoded = b64encode(fobj.read()).decode()
-                return {
-                    'filename': Path(path).name,
-                    'data': encoded,
-                }
+                return path.relative_to(figures_dir).name if path.exists() else None
 
             return {
                 'id': id,
-                'status': 'ok',
-                'message': 'Prediction completed',
-                'prediction': prediction_values.tolist(),
-                'visualisations': {
-                    'pca': encode_visualisation(pca_path),
-                    'means_pca': encode_visualisation(means_pca_path),
-                    'clustering_heatmap': encode_visualisation(heatmap_path),
+                'label': dataset.label,
+                'prediction': prediction_values.to_dict(orient='list'),
+                'figs': {
+                    'pca': check_path(pca_path),
+                    'means_pca': check_path(means_pca_path),
+                    'heatmap': check_path(heatmap_path),
                 }
             }
         finally:
             db.session.remove()
 
     return run_prediction
+
+
+@bp.route("/prediction/<int:id>/figures/<path:relpath>", methods=["GET"])
+def prediction_figures(id: int, relpath: str):
+    user = current_user()
+    uid = current_uid()
+    sec_filter = () if user and user.is_admin else (db.func.coalesce(DataSet.user_id, 0).in_((uid, 0)),)
+    try:
+        dataset = db.query(DataSet).filter(DataSet.id == id, *sec_filter).one()
+    except sqlalchemy.exc.NoResultFound:
+        raise RequestError("No prediction access allowed for this user")
+
+    figures_dir = Path(dataset.filepath) / 'prediction'
+    return send_from_directory(figures_dir, relpath)
 
 
 @app.sio.onmsg('update_dataset')

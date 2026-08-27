@@ -1,9 +1,7 @@
 from functools import cached_property
 import logging
 from pathlib import Path
-from typing import Any
 
-from numpy.typing import NDArray
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
@@ -17,22 +15,23 @@ logger = logging.getLogger(__name__)
 MODEL_FILE = 'optuna_l1_71_3000.zip'
 
 
-def get_prediction(data: str | pd.DataFrame, model_dir: str) -> NDArray[Any]:
+def get_prediction(data: str | pd.DataFrame, model_dir: str) -> pd.DataFrame:
     inds_df = pd.read_csv(data, header=0) if isinstance(data, str) else data
     prepared = data_utils.prepare_target_data(inds_df)[0]
 
-    input_size = len(defaults.KEPT_ELEMENTS_WEIGHTS)
-    if defaults.NORMALISATION_TO_FE:
-        input_size -= 1
+    labels = [*defaults.KEPT_ELEMENTS_WEIGHTS] \
+        if not defaults.NORMALISATION_TO_FE \
+        else [elem for elem in defaults.KEPT_ELEMENTS_WEIGHTS if elem != 'Fe']
+    input_size = len(labels)
     device = data_utils.get_device()
     model = engine.InksNet(input_size=input_size, dropout_prob=defaults.DROPOUT_PROB).to(device)
-    model.load_state_dict(torch.load(Path(model_dir) / MODEL_FILE, weights_only=False))
+    model.load_state_dict(torch.load(Path(model_dir) / MODEL_FILE, weights_only=False,
+                                     map_location=torch.device(device)))
 
     # ## Prediction
-
     model.eval()
     prediction = model(prepared)
-    return prediction.cpu().detach().numpy()
+    return pd.DataFrame(data=prediction.cpu().detach().numpy(), columns=labels)
 
 
 class PredictionVisualizer:
@@ -58,13 +57,13 @@ class PredictionVisualizer:
     def x_pca(self):
         return PCA(n_components=2).fit_transform(self.x_values)
 
-    def show_pca(self, dest_dir: str):
+    def show_pca(self, dest_dir: Path):
         return visualisation.visualise_pca(self.x_pca, self.y_true, figures_path=dest_dir)
 
-    def show_means_pca(self, dest_dir: str):
+    def show_means_pca(self, dest_dir: Path):
         return visualisation.visualise_means_pca(self.x_pca, self.y_true, figures_path=dest_dir)
 
-    def show_clustering_heatmap(self, dest_dir: str):
+    def show_clustering_heatmap(self, dest_dir: Path):
         return visualisation.visualise_clustering_on_heatmap(
             self.x_values,
             self.y_true.to_numpy(),
