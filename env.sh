@@ -74,7 +74,7 @@ prepare_run() {
     : "Run React frontend in the foreground"
     cd web/
     [[ $1 = quick ]] || npm i
-    BROWSER=none npm start
+    npm run dev
 }
 
 :run() {
